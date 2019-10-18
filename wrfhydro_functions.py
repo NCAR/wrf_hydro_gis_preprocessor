@@ -480,8 +480,8 @@ class WRF_Hydro_Grid():
         Code from: https://www.perrygeo.com/python-affine-transforms.html
         '''
         # col, row to x, y
-        x = (col * self.DX) + self.x00
-        y = (row * self.DY) + self.y00
+        x = (col * self.DX) + self.x00 + self.DX/2.0
+        y = (row * self.DY) + self.y00 + self.DY/2.0
         return x, y
 
     def project_to_model_grid(self, in_raster, saveRaster=False, OutGTiff=None, resampling=gdal.GRA_Bilinear):
@@ -515,11 +515,9 @@ class WRF_Hydro_Grid():
                     target_ds = None
                 except:
                     pass
-
         # Finish
         print('    Projected input raster to routing grid in {0: 3.2f} seconds.'.format(time.time()-tic1))
         return OutRaster
-
 #gridder_obj = Gridder_Layer(WKT, DX, DY, x00, y00, nrows, ncols)
 
 # --- End Classes --- #
@@ -2069,7 +2067,7 @@ def build_LAKEPARM(LakeNC, min_elevs, areas, max_elevs, OrificEs, cen_lats, cen_
 
     # Create Lake parameter file
     print('    Starting to create lake parameter table.')
-    print('        Lakes Table: %s Lakes' %len(list(areas.keys())))
+    print('        Lakes Table: {0} Lakes'.format(len(list(areas.keys()))))
 
     # Create NetCDF output table
     rootgrp = netCDF4.Dataset(LakeNC, 'w', format=outNCType)
@@ -2281,7 +2279,7 @@ def project_Polygons(InputVector, outProj, clipGeom=None):
     in_vect = inlayerDef = in_layer = None
     return data_source, outLayer, fieldNames
 
-def raster_to_polygon(in_raster, in_proj):
+def raster_to_polygon(in_raster, in_proj, geom_typ=ogr.wkbPolygon):
     '''
     Convert a raster object to a polygon layer.
     '''
@@ -2289,7 +2287,7 @@ def raster_to_polygon(in_raster, in_proj):
 
     # Create temporary polygon vector layer
     ds = ogr.GetDriverByName('MEMORY').CreateDataSource('')
-    Layer = ds.CreateLayer('', geom_type=ogr.wkbPolygon, srs=in_proj)   # Use projection from input raster
+    Layer = ds.CreateLayer('', geom_type=geom_typ, srs=in_proj)   # Use projection from input raster
     Layer.CreateField(ogr.FieldDefn('RASTERVALU', ogr.OFTReal))
 
     # Get raster band information
@@ -2305,6 +2303,59 @@ def raster_to_polygon(in_raster, in_proj):
 
     #feature = Layer.GetNextFeature()
     return ds, Layer
+
+def dissolve_polygon_to_multipolygon(inDS, inLayer, fieldname, quiet=True):
+    '''
+    This function will dissolve the polygons in an input polygon feature layer
+    and provide an output in-memory multipolygon layer with the dissolved geometries.
+    '''
+    tic1 = time.time()
+    in_proj = inLayer.GetSpatialRef()
+
+    # Create temporary polygon vector layer
+    ds = ogr.GetDriverByName('MEMORY').CreateDataSource('')
+    outLayer = ds.CreateLayer('', geom_type=ogr.wkbMultiPolygon, srs=in_proj)   # Use projection from input raster
+    inlayerDef = inLayer.GetLayerDefn()                                        # Obtain the layer definition for this layer
+
+    # Copy fields from input vector layer to output
+    fieldNames = []                                                             # Build empty list of field names
+    for i in range(inlayerDef.GetFieldCount()):
+        fieldDef = inlayerDef.GetFieldDefn(i)                                   # Get the field definition for this field
+        fieldName =  fieldDef.GetName()                                         # Get the field name for this field
+        outLayer.CreateField(ogr.FieldDefn(fieldName, fieldDef.GetType()))      # Create a field in the output that matches the field in the input layer
+        fieldNames.append(fieldName)                                            # Add field name to list of field names
+    outlayerDef = outLayer.GetLayerDefn()
+    inlayerDef = None
+
+    # Set up list of unique lake IDs over which to dissolve singlepart to multiapart polygons
+    valuelist = set([feature.GetField(fieldname) for feature in inLayer])       # Get list of unique IDs
+    inLayer.ResetReading()                                                      # Reset layer
+    for idval in valuelist:
+        inLayer.SetAttributeFilter('"%s" = %s' %(fieldname, idval))         # Select the ID from the layer
+        polygeom = ogr.Geometry(ogr.wkbMultiPolygon)
+        for feature in inLayer:
+            polygeom.AddGeometry(feature.GetGeometryRef())
+        #polygeom = polygeom.UnionCascaded()
+        if not quiet:
+            print('  [{0}] Number of features in the original polygon: {1},  multipolygon: {2}'.format(int(idval), inLayer.GetFeatureCount(), polygeom.GetGeometryCount()))
+
+        # Create output Feature
+        outFeature = ogr.Feature(outlayerDef)                                   # Create new feature
+        outFeature.SetGeometry(polygeom)                                        # Set output Shapefile's feature geometry
+
+        # Fill in fields. All fields in input will be transferred to output
+        for fieldname in fieldNames:
+            if fieldname == 'AREASQKM':
+                outFeature.SetField(fieldname, float(polygeom.Area()/1000000.0))       # Add an area field to re-calculate area
+            else:
+                outFeature.SetField(fieldname, feature.GetField(fieldname))
+        outLayer.CreateFeature(outFeature)                                      # Add new feature to output Layer
+        feature = outFeature = polygeom = None                                  # Clear memory
+        inLayer.SetAttributeFilter(None)
+    inlayerDef = outlayerDef = outLayer = None
+    del idval, fieldNames, valuelist, in_proj
+    print('    Done dissolving input layer in {0:3.2f} seconds.'.format(time.time()-tic1))
+    return ds
 
 def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, Gridded=True):
     """
@@ -2327,10 +2378,8 @@ def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, 
         routing grid. If False, all lakes coincident with the domain boundary
         will be included in LAKEPARM.nc.
     """
-    #(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield) = (rootgrp2, projdir, fac, in_lakes, fine_grid, None)
-
+    #(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield, Gridded) = (rootgrp2, projdir, fac, in_lakes, fine_grid, None, None)
     tic1 = time.time()                                                          # Set timer
-    Community = True                                                            # Switch to provide Community WRF-Hydro LAKEPARM outputs
 
     # Setup Whitebox tools
     wbt = WhiteboxTools()
@@ -2343,7 +2392,7 @@ def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, 
     LakeRas = os.path.join(projdir, 'LakeGrid.tif')
     frxst_FC = os.path.join(projdir, 'Lake_outlets.shp')
     out_lake_raster_shp = os.path.join(projdir, "out_lake_raster.shp")
-    snapPour = 'Lake_snapped_pour_points.shp'                                       # Pour points snapped downstream of lake outlets
+    snapPour = 'Lake_snapped_pour_points.shp'                                   # Pour points snapped downstream of lake outlets
 
     # Get domain extent for cliping geometry
     geom = grid_obj.boundarySHP('', 'MEMORY')
@@ -2370,7 +2419,7 @@ def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, 
     # Gather areas from AREASQKM field
     areas = {}
     for feature in lake_layer:
-        areas[feature.GetField(lakeID)] = feature.GetField('AREASQKM')*1000000.0
+        areas[feature.GetField(lakeID)] = feature.GetField('AREASQKM')
         feature = None
     lake_layer.ResetReading()
     lakeIDList = list(areas.keys())
@@ -2411,48 +2460,55 @@ def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, 
     snapPourFile = os.path.join(projdir, snapPour)
     wbt.snap_pour_points(frxst_FC, fac, snapPour, tolerance)                  # Snap pour points to flow accumulation grid within a tolerance
 
-    # Rasterize the point shapefile and extract elevations at those locations
-    Min_Elev_Raster = FeatToRaster(snapPourFile, fac, 'VALUE', gdal.GDT_Int32, NoData=NoDataVal)
-    Min_Elev_arr = BandReadAsArray(Min_Elev_Raster.GetRasterBand(1))
-    Min_Elev_Raster = None
+    # Read the shapefile from previous Snap Pour Points and extract the values directly
+    fill_arr = rootgrp.variables['TOPOGRAPHY'][:]                               # Read elevation array from Fulldom
+    snap_ds = ogr.Open(snapPourFile, 0)
+    pointlyr = snap_ds.GetLayer()                                               # Get the 'layer' object from the data source
+    min_elevs = {}
+    for feature in pointlyr:
+        idval = feature.GetField('VALUE')
+        point = feature.GetGeometryRef()
+        row, col = grid_obj.xy_to_grid_ij(point.GetX(), point.GetY())
+        min_elevs[idval] = fill_arr[row, col]
+        feature = point = None
+        del idval, row, col
+    snap_ds = pointlyr = None
+    ogr.GetDriverByName(VectorDriver).DeleteDataSource(snapPourFile)
 
     # Gathering minimum elevation reqiures sampling at the location below reservoir outlets
-    fill_arr = rootgrp.variables['TOPOGRAPHY'][:]                               # Read elevation array from Fulldom
-    min_elevs = {lake:fill_arr[Min_Elev_arr==lake].min() for lake in lake_uniques}  # Slow?
-    del Min_Elev_arr
     max_elevs = {lake:fill_arr[Lake_arr==lake].max() for lake in lake_uniques}
     del Lake_arr, lake_uniques
 
     # Delete temporary point shapefiles
     ogr.GetDriverByName(VectorDriver).DeleteDataSource(frxst_FC)
-    ogr.GetDriverByName(VectorDriver).DeleteDataSource(snapPourFile)
 
-    # 2/23/2018: Find the missing lakes and sample elevation at their centroid.
-    min_elev_keys = list(min_elevs.keys())
-    print('    Lakes in minimum elevation dict: {0}'.format(len(min_elev_keys))) # Delete later
-    MissingLks = [item for item in lakeIDList if item not in min_elev_keys]  # 2/23/2018: Find lakes that were not resolved on the grid
-    shapes = {}
-    if len(MissingLks) > 0:
-        print('    Found {0} lakes that could not be resolved on the grid: {1}\n      Sampling elevation from the centroid of these features.'.format(len(MissingLks), str(MissingLks)))
-        ds = ogr.Open(outshp, 0)
-        Lakeslyr = ds.GetLayer()
-        Lakeslyr.SetAttributeFilter('"%s" IN (%s)' %(lakeID, str(MissingLks)[1:-1]))    # Select the missing lakes from the input shapefile
-        centroidElev = {}
-        for feature in Lakeslyr:
-            idval = feature.GetField(lakeID)
-            centroid = feature.GetGeometryRef().Centroid()
-            x, y = centroid.GetX(), centroid.GetY()
-            row, col = grid_obj.xy_to_grid_ij(x, y)
-            centroidElev[idval] = fill_arr[row, col]
-            shapes[idval] = (x,y)
-        feature = centroid = Lakeslyr = ds = None
-    del fill_arr, lakeIDList
-    ogr.GetDriverByName(VectorDriver).DeleteDataSource(outshp)
+    # Only add in 'missing' lakes if this is a reach-routing simulation and lakes
+    # don't need to be resolved on the grid.
+    if not Gridded:
+        # 2/23/2018: Find the missing lakes and sample elevation at their centroid.
+        min_elev_keys = list(min_elevs.keys())
+        print('    Lakes in minimum elevation dict: {0}'.format(len(min_elev_keys))) # Delete later
+        MissingLks = [item for item in lakeIDList if item not in min_elev_keys]     # 2/23/2018: Find lakes that were not resolved on the grid
+        if len(MissingLks) > 0:
+            print('    Found {0} lakes that could not be resolved on the grid: {1}\n      Sampling elevation from the centroid of these features.'.format(len(MissingLks), str(MissingLks)))
+            ds = ogr.Open(outshp, 0)
+            Lakeslyr = ds.GetLayer()
+            Lakeslyr.SetAttributeFilter('"%s" IN (%s)' %(lakeID, str(MissingLks)[1:-1]))    # Select the missing lakes from the input shapefile
+            centroidElev = {}
+            for feature in Lakeslyr:
+                idval = feature.GetField(lakeID)
+                centroid = feature.GetGeometryRef().Centroid()
+                row, col = grid_obj.xy_to_grid_ij(centroid.GetX(), centroid.GetY())
+                centroidElev[idval] = fill_arr[row, col]
+                feature = centroid = None
+                del row, col, idval
+            Lakeslyr = ds = None
 
-    # Update dictionaries with information on the lakes that were not resolved on the grid
-    max_elevs.update(centroidElev)                                              # Add single elevation value as max elevation
-    min_elevs.update(centroidElev)                                              # Make these lakes the minimum depth
-    del centroidElev, MissingLks
+            # Update dictionaries with information on the lakes that were not resolved on the grid
+            max_elevs.update(centroidElev)                                      # Add single elevation value as max elevation
+            min_elevs.update(centroidElev)                                      # Make these lakes the minimum depth
+            del centroidElev
+        del fill_arr, lakeIDList, MissingLks
 
     # Give a minimum active lake depth to all lakes with no elevation variation
     elevRange = {key:max_elevs[key]-val for key,val in min_elevs.items()}   # Get lake depths
@@ -2470,19 +2526,27 @@ def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, 
     del elevRange, noDepthLks
 
     # Calculate the Orifice and Wier heights
-    OrificEs = {x:(min_elevs[x] + ((max_elevs[x] - min_elevs[x])/3)) for x in min_elev_keys}             # Orific elevation is 1/3 between the low elevation and max lake elevation
-    WeirE_vals = {x:(min_elevs[x] + ((max_elevs[x] - min_elevs[x]) * 0.9)) for x in min_elev_keys}       # WierH is 0.9 of the distance between the low elevation and max lake elevation
+    # Orifice elevation is 1/3 between the low elevation and max lake elevation
+    OrificEs = {x:(min_elevs[x] + ((max_elevs[x] - min_elevs[x])/3)) for x in min_elev_keys}
+
+    # WierH is 0.9 of the distance between the low elevation and max lake elevation
+    WeirE_vals = {x:(min_elevs[x] + ((max_elevs[x] - min_elevs[x])*0.9)) for x in min_elev_keys}
+    del min_elev_keys
 
     #  Gather centroid lat/lons
-    ds, Layer = raster_to_polygon(LakeRaster, grid_obj.proj)
-    out_ds  = ogr.GetDriverByName(VectorDriver).CopyDataSource(ds, out_lake_raster_shp)
-    out_ds = LakeRaster = ds = None
-    #arcpy.Dissolve_management(out_lake_raster_shp, out_lake_raster_dis, "GRIDCODE", "", "MULTI_PART")               # Dissolve to eliminate multipart features
+    ds1, Layer = raster_to_polygon(LakeRaster, grid_obj.proj, geom_typ=ogr.wkbMultiPolygon)
+    LakeRaster = None
+
+    # Dissolve multiple features to multipolygon feature layer by field value.
+    ds2 = dissolve_polygon_to_multipolygon(ds1, Layer, 'RASTERVALU')
+    ds1 = None
+    #out_shp = ogr.GetDriverByName(VectorDriver).CopyDataSource(ds2, out_lake_raster_shp)
+    #out_shp = None
 
     # Create a point geometry object from gathered lake centroid points
     print('    Starting to gather lake centroid information.')
-    ds = ogr.Open(out_lake_raster_shp, 0)
-    Lakeslyr = ds.GetLayer()
+    #ds2 = ogr.Open(out_lake_raster_shp, 0)
+    Lakeslyr = ds2.GetLayer()
     wgs84_proj = osr.SpatialReference()
     wgs84_proj.ImportFromProj4(wgs84_proj4)
     coordTrans = osr.CoordinateTransformation(grid_obj.proj, wgs84_proj)
@@ -2495,15 +2559,13 @@ def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, 
         centroid.Transform(coordTrans)                                      # Transform the geometry
         cen_lats[idval] = centroid.GetY()
         cen_lons[idval] = centroid.GetX()
-    feature = centroid = Lakeslyr = ds = None
-    del x, y, idval, ds
+        del x, y, idval
+    feature = centroid = Lakeslyr = None    # ds = None
+    del ds2, Lakeslyr
     print('    Done gathering lake centroid information.')
-    ogr.GetDriverByName(VectorDriver).DeleteDataSource(out_lake_raster_shp)
 
     # Call function to build lake parameter netCDF file
-    print('    Starting to create lake parameter table.')
-    print('        Lakes Table: {0} Lakes'.format(len(list(areas.keys()))))
-    #build_LAKEPARM(LakeNC, min_elevs, areas, max_elevs, OrificEs, cen_lats, cen_lons, WeirE_vals)
+    build_LAKEPARM(LakeNC, min_elevs, areas, max_elevs, OrificEs, cen_lats, cen_lons, WeirE_vals)
     print('    Lake parameter table created without error in {0: 3.2f} seconds.'.format(time.time()-tic1))
     return rootgrp
 

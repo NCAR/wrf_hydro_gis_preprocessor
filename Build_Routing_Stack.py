@@ -30,7 +30,7 @@ import netCDF4
 # Import function library into namespace. Must exist in same directory as this script.
 import wrfhydro_functions as wrfh                                               # Function script packaged with this toolbox
 
-### Add Proj directory to path
+# Add Proj directory to path
 import sys
 conda_env_path = os.path.join(os.path.dirname(sys.executable))
 internal_datadir = os.path.join(conda_env_path, "Library", "share", "proj")
@@ -260,30 +260,29 @@ if __name__ == '__main__':
         wrfh.remove_file(fill)                                                  # Delete fill from disk
 
         if Lake_routing:
-            pass
             # Alter Channelgrid for reservoirs
-            #rootgrp2 = wrfh.add_reservoirs(rootgrp2, projdir, fac, in_lakes, fine_grid, Gridded=gridded)
-        ##        rootgrp2.close()                                                        # Close Fulldom_hires.nc file
-        ##        del rootgrp2
-        ##
-        ##        # Step 5 - Build groundwater files -- NOT WORKING YET
-        ##        if GW_with_Stack:
-        ##            print('  Building Groundwater Basin inputs.')
-        ##            GWBasns = wrfh.build_GW_Basin_Raster(out_nc2, projdir, defaultGWmethod, channelgrid, fdir, fine_grid, in_Polys=in_GWPolys)
-        ##            wrfh.build_GW_buckets(projdir, GWBasns, coarse_grid, Grid=True)
-        ##            GWBasns = None
-        ##            del GWBasns
-        ##            if defaultGWmethod == 'FullDom LINKID local basins':
-        ##                wrfh.remove_file(os.path.join(projdir, wrfh.sub_basins))                               # Delete sub basins raster from disk
-        ##        wrfh.remove_file(fdir)                                                  # Delete fdir from disk
-        ##        wrfh.remove_file(fac)                                                   # Delete fac from disk
-        ##        wrfh.remove_file(channelgrid)                                           # Delete channelgrid from disk
-        ##
-        ##        # zip the folder
-        ##        tic1 = time.time()
-        ##        #ipper = wrfh.zipUpFolder(projdir, out_zip, nclist)
-        ##        print('Built output .zip file in {0: 3.2f} seconds.'.format(time.time()-tic1))  # Diagnotsitc print statement
-        ##
-        ##        # Delete all temporary files
-        ##        #shutil.rmtree(projdir)
+            rootgrp2 = wrfh.add_reservoirs(rootgrp2, projdir, fac, in_lakes, fine_grid, Gridded=gridded)
+            rootgrp2.close()                                                        # Close Fulldom_hires.nc file
+            del rootgrp2
+
+        # Step 5 - Build groundwater files -- NOT WORKING YET
+        if GW_with_Stack:
+            print('  Building Groundwater Basin inputs.')
+            GWBasns = wrfh.build_GW_Basin_Raster(out_nc2, projdir, defaultGWmethod, channelgrid, fdir, fine_grid, in_Polys=in_GWPolys)
+            wrfh.build_GW_buckets(projdir, GWBasns, coarse_grid, Grid=True)
+            GWBasns = None
+            del GWBasns
+            if defaultGWmethod == 'FullDom LINKID local basins':
+                wrfh.remove_file(os.path.join(projdir, wrfh.sub_basins))                               # Delete sub basins raster from disk
+        wrfh.remove_file(fdir)                                                  # Delete fdir from disk
+        wrfh.remove_file(fac)                                                   # Delete fac from disk
+        wrfh.remove_file(channelgrid)                                           # Delete channelgrid from disk
+
+        # zip the folder
+        tic1 = time.time()
+        zipper = wrfh.zipUpFolder(projdir, out_zip, nclist)
+        print('Built output .zip file in {0: 3.2f} seconds.'.format(time.time()-tic1))  # Diagnotsitc print statement
+
+        # Delete all temporary files
+        #shutil.rmtree(projdir)
     print('Process completed in {0:3.2f} seconds.'.format(time.time()-tic))
