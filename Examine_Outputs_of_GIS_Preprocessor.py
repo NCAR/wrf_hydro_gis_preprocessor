@@ -23,8 +23,6 @@ results (out_folder), if that folder does not already exist.
  Ensure that the out_folder exists, but is empty for maximum compatibility.
  """
 
-# Import Modules
-
 # Import Python Core Modules
 import os
 import time
@@ -40,44 +38,27 @@ from gdalnumeric import *                                                       
 # Import function library into namespace. Must exist in same directory as this script.
 import wrfhydro_functions as wrfh                                               # Function script packaged with this toolbox
 
-print('Script initiated at {0}'.format(time.ctime()))
-
 # Global Variables
 
 # Input and output files and directories
 in_zip = r"C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Outputs\wrf_hydro_routing_grids.zip"
-#in_zip = r"C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Outputs\Arc_Stack\WRF_Hydro_routing_grids_lakes.zip"
 out_folder = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Outputs\wrf_hydro_routing_grids_Examine'
-#out_folder = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Outputs\Arc_Stack\WRF_Hydro_routing_grids_lakes_Examine'
 skipfiles = []
 
 #Other Globals
 RasterDriver = 'GTiff'
 suffix = '.tif'                                                                 # File extension to use for output rasters
 
-# Script options
+# Keep a directory of files to delete from the extracted zip file
+dellist = []
 
 # --- Functions --- #
-# --- End Functions --- #
-
-# Main Codeblock
-if __name__ == '__main__':
-    tic = time.time()
-
-    # Create output directory for temporary outputs
-    if os.path.exists(out_folder):
-        print('Requested output directory already exists. \nPlease specify a non-existant directory as output.')
-        raise SystemExit
-    else:
-        os.makedirs(out_folder)
-
-    #out_folder = wrfh.Examine_Outputs(in_zip, out_folder, skipfiles=[])
-
-    # Create scratch workspace
-    dellist = []                                                                # Keep a directory of files to delete
-
-    # Unzip to a known location (make sure no other nc files live here)
-    wrfh.ZipCompat(in_zip).extractall(out_folder)
+def examine_outputs(out_folder, dellist=[], skipfiles=[]):
+    '''
+    Provide a directory, ideally the unzipped directory of a routing stack produced
+    by the WRF-Hydro GIS Pre-processor. Files will be examined and derivatives
+    made from 2D netCDF files. Some files will be delted from the input directory.
+    '''
 
     # Iterate through unzipped files and copy to output directory as necessary
     for dirpath, dirnames, filenames in os.walk(out_folder):
@@ -146,7 +127,7 @@ if __name__ == '__main__':
                 del file, infile, rootgrp, ncvar
                 continue
 
-            if file.split('.')[-1] in ['.shp', '.shx', '.xml', '.sbx', '.sbn', '.prj', '.dbf',]:
+            if file.split('.')[-1] in ['shp', 'shx', 'xml', 'sbx', 'sbn', 'prj', 'dbf']:
                 print('    File Copied: {0}'.format(str(file)))
                 del file, infile
                 continue
@@ -165,5 +146,24 @@ if __name__ == '__main__':
     # Remove each file from the temporary extraction directory
     for infile in dellist:
         os.remove(infile)
+    return
+
+# --- End Functions --- #
+
+# Main Codeblock
+if __name__ == '__main__':
+    tic = time.time()
+    print('Script initiated at {0}'.format(time.ctime()))
+
+    # Create output directory for temporary outputs
+    if os.path.exists(out_folder):
+        print('Requested output directory already exists. \nPlease specify a non-existant directory as output.')
+        raise SystemExit
+    else:
+        os.makedirs(out_folder)
+
+    # Unzip to a known location (make sure no other nc files live here)
+    wrfh.ZipCompat(in_zip).extractall(out_folder)
+    examine_outputs(out_folder, dellist, skipfiles)
     print('Extraction of WRF routing grids completed.')
     print('Process complted in {0:3.2f} seconds.'.format(time.time()-tic))

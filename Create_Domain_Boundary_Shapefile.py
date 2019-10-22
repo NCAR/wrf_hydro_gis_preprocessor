@@ -53,4 +53,5 @@ if __name__ == '__main__':
     geom = None
     rootgrp.close()
     del rootgrp, geom
+    print('  Output shapefile: {0}'.format(outSHP))
     print('Process completed in {0:3.2f} seconds.'.format(time.time()-tic))

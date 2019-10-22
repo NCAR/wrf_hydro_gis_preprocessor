@@ -17,6 +17,7 @@
 
 # Import Python Core Modules
 import os
+import sys
 import time
 import shutil
 import copy
@@ -31,7 +32,6 @@ import netCDF4
 import wrfhydro_functions as wrfh                                               # Function script packaged with this toolbox
 
 # Add Proj directory to path
-import sys
 conda_env_path = os.path.join(os.path.dirname(sys.executable))
 internal_datadir = os.path.join(conda_env_path, "Library", "share", "proj")
 os.environ["PROJ_LIB"] = internal_datadir
@@ -51,15 +51,6 @@ in_lakes = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Inputs\NW
 # Outputs - permanent
 out_zip = os.path.join(out_dir, 'wrf_hydro_routing_grids.zip')
 
-# Default temporary output file names
-mosprj_name = 'mosaicprj.tif'                                                   # Default regridded input DEM if saved to disk
-
-# Variables derived from function script
-out_Grid_fmt = wrfh.RasterDriver
-
-# Script options
-runGEOGRID_STANDALONE = True                                                    # Switch for testing the GEOGRID STANDALONE Pre-processing workflow
-
 # Script parameters
 routing = False                                                                 # Build reach-based routing inputs
 Lake_routing = True                                                            # Allow gridded lake routing
@@ -70,6 +61,15 @@ basin_mask = True
 threshold = 200
 maskRL = False                                                                  # Allow masking of channels in RouteLink file. May cause WRF-Hydro to crash if True
 lksatfac_val = 1000.0
+
+# Default temporary output file names
+mosprj_name = 'mosaicprj.tif'                                                   # Default regridded input DEM if saved to disk
+
+# Variables derived from function script
+out_Grid_fmt = wrfh.RasterDriver
+
+# Script options
+runGEOGRID_STANDALONE = True                                                    # Switch for testing the GEOGRID STANDALONE Pre-processing workflow
 
 #outNCType = 'NETCDF3_64BIT'                                                     # Set output netCDF format for spatial metdata files. This was the default before 7/31/2018
 outNCType = 'NETCDF4_CLASSIC'                                                   # Define the output netCDF version for RouteLink.nc and LAKEPARM.nc
@@ -90,13 +90,15 @@ nclist = [wrfh.LDASFile,
             'streams.shp', 'streams.shx', 'streams.shp.xml', 'streams.sbx', 'streams.sbn', 'streams.prj', 'streams.dbf',
             'lakes.shp', 'lakes.shx', 'lakes.shp.xml', 'lakes.sbx', 'lakes.sbn', 'lakes.prj', 'lakes.dbf',
             wrfh.GW_nc,
-            wrfh.GWGRID_nc]
+            wrfh.GWGRID_nc,
+            wrfh.minDepthCSV]
 
-# Groundwater input options
+# Provide the default groundwater basin generation method.
+# Options ['FullDom basn_msk variable', 'FullDom LINKID local basins', 'Polygon Shapefile or Feature Class']
+defaultGWmethod = 'FullDom LINKID local basins'
+
+# Other Groundwater input options
 GW_with_Stack = True                                                            # Switch for building default groundwater inputs with any routing stack
-defaultGWmethod = 'FullDom LINKID local basins'                                 # Provide the default groundwater basin generation method. Options ['FullDom basn_msk variable', 'FullDom LINKID local basins', 'Polygon Shapefile or Feature Class']
-#defaultGWmethod = 'FullDom basn_msk variable'
-#defaultGWmethod = 'Polygon Shapefile or Feature Class'
 in_GWPolys = None                                                               # The polygon shapefile to use if defaultGWmethod == 'Polygon Shapefile or Feature Class'
 
 # Methods test switches
@@ -121,14 +123,47 @@ varList2D = [['CHANNELGRID', 'i4', ''],
             ['landuse', 'f4', ''],
             ['LKSATFAC', 'f4', '']]
 
+# --- Classes --- #
+class TeeNoFile(object):
+    '''
+    Send print statements to a log file:
+    http://web.archive.org/web/20141016185743/https://mail.python.org/pipermail/python-list/2007-May/460639.html
+    https://stackoverflow.com/questions/11124093/redirect-python-print-output-to-logger/11124247
+    '''
+    def __init__(self, name, mode):
+        self.file = open(name, mode)
+        self.stdout = sys.stdout
+        sys.stdout = self
+    def close(self):
+        if self.stdout is not None:
+            sys.stdout = self.stdout
+            self.stdout = None
+        if self.file is not None:
+            self.file.close()
+            self.file = None
+    def write(self, data):
+        self.file.write(data)
+        self.stdout.write(data)
+    def flush(self):
+        self.file.flush()
+        self.stdout.flush()
+    def __del__(self):
+        self.close()
+# --- End Classes --- #
+
 # Main Codeblock
 if __name__ == '__main__':
     tic = time.time()
+
+    # Configure logging
+    logfile = out_zip.replace('.zip', '.log')
+    tee = TeeNoFile(logfile, 'w')
 
     if runGEOGRID_STANDALONE:
 
         # Create scratch directory for temporary outputs
         projdir = os.path.join(os.path.dirname(out_zip), 'scratchdir')
+        projdir = os.path.abspath(projdir)
         if os.path.exists(projdir):
             shutil.rmtree(projdir)
         os.makedirs(projdir)
@@ -137,6 +172,9 @@ if __name__ == '__main__':
         if not Lake_routing:
             in_lakes = None
         gridded = not routing                                                   # Flag for gridded routing
+
+        if 'in_csv' in locals():
+            AddGages = True
 
         # Add variables depending on the input options
         if routing:
@@ -151,9 +189,7 @@ if __name__ == '__main__':
         print('    Created projection definition from input NetCDF GEOGRID file.')
 
         # Build output raster from numpy array of the GEOGRID variable requested. This will be used as a template later on
-        LU_INDEX = wrfh.numpy_to_Raster(wrfh.flip_grid(rootgrp.variables['LU_INDEX'][0]),
-                                        coarse_grid.proj, coarse_grid.DX, coarse_grid.DY,
-                                        coarse_grid.x00, coarse_grid.y00)
+        LU_INDEX = coarse_grid.numpy_to_Raster(wrfh.flip_grid(rootgrp.variables['LU_INDEX'][0]))
         print('    GeoTransform: {0}'.format(coarse_grid.GeoTransformStr()))                  # Print affine transformation to screen.
 
         # Create spatial metadata file for GEOGRID/LDASOUT grids
@@ -178,8 +214,9 @@ if __name__ == '__main__':
             lonArr = wrfh.flip_grid(rootgrp.variables['XLONG_M'][0])                # Extract array of GEOGRID longitude values
 
             # Method 1: Use GEOGRID latitude and longitude fields and resample to routing grid
-            latRaster1 = wrfh.numpy_to_Raster(latArr, coarse_grid.proj, coarse_grid.DX, coarse_grid.DY, coarse_grid.x00, coarse_grid.y00)      # Build raster out of GEOGRID latitude array
-            lonRaster1 = wrfh.numpy_to_Raster(lonArr, coarse_grid.proj, coarse_grid.DX, coarse_grid.DY, coarse_grid.x00, coarse_grid.y00)      # Build raster out of GEOGRID latitude array
+            latRaster1 = coarse_grid.numpy_to_Raster(latArr)                    # Build raster out of GEOGRID latitude array
+            lonRaster1 = coarse_grid.numpy_to_Raster(lonArr)                    # Build raster out of GEOGRID longitude array
+
             latRaster2 = fine_grid.project_to_model_grid(latRaster1)            # Regrid from GEOGRID resolution to routing grid resolution
             lonRaster2 = fine_grid.project_to_model_grid(lonRaster1)            # Regrid from GEOGRID resolution to routing grid resolution
             latRaster1 = lonRaster1 = None                                          # Destroy rater objects
@@ -217,72 +254,59 @@ if __name__ == '__main__':
 
         # Process: Resample LU_INDEX grid to a higher resolution
         LU_INDEX2 = fine_grid.project_to_model_grid(LU_INDEX, fine_grid.DX, fine_grid.DY, resampling=gdal.GRA_NearestNeighbour)
-        LU_INDEX2_var = rootgrp2.variables['landuse']
-        LU_INDEX2_var[:] = BandReadAsArray(LU_INDEX2.GetRasterBand(1))          # Read into numpy array
+        rootgrp2.variables['landuse'][:] = BandReadAsArray(LU_INDEX2.GetRasterBand(1))          # Read into numpy array
         LU_INDEX = None                                                         # Destroy raster object
         print('    Process: landuse written to output netCDF.')
-        del LU_INDEX, LU_INDEX2, LU_INDEX2_var
+        del LU_INDEX, LU_INDEX2
 
         ##        # Step X(a) - Test to match LANDMASK - Only used for areas surrounded by water (LANDMASK=0)
-        ##        mosprj2, loglines = wrf_hydro_functions.adjust_to_landmask(mosprj, LANDMASK, coarse_grid.proj, projdir, 'm')
+        ##        mosprj2, loglines = wrfh.adjust_to_landmask(mosprj, LANDMASK, coarse_grid.proj, projdir, 'm')
         ##        outtable.writelines("\n".join(loglines) + "\n")
         ##        del LANDMASK
 
         # Step 4 - Hyrdo processing functions -- Whitebox
-        rootgrp2, fdir, fac, channelgrid, fill = wrfh.WB_functions(rootgrp2, outDEM,
+        rootgrp2, fdir, fac, channelgrid, fill, order = wrfh.WB_functions(rootgrp2, outDEM,
                 projdir, threshold, ovroughrtfac_val, retdeprtfac_val, lksatfac_val)
         wrfh.remove_file(outDEM)
 
         # If the user provides forecast points as a CSV file, alter outputs accordingly
-        if 'in_csv' in locals():
+        if AddGages:
             if os.path.exists(in_csv):
                 rootgrp2 = wrfh.forecast_points(in_csv, rootgrp2, basin_mask, projdir,
                             fine_grid.DX, fine_grid.WKT, fdir, fac, channelgrid)    # Forecast point processing
 
-        ''' Works great up until here '''
-
         # Moved 10/9/2017 by KMS to allow masking routing files (LINKID, Route_Link, etc.) to forecast points if requested
         if routing:
-            print('    Reach-based routing files will be created.')
-            strm_arr, ndv = wrfh.return_raster_array(channelgrid)
-            if in_csv is None:                                                      # Added 10/10/2017 by KMS to include forecast points in reach-based routing file
-                frxst_raster = None                                                 # Default is no forecast points for reach-based routing file
-            elif maskRL:
-                # Only channels within the masked basin will be in reach-based routing file
-                strm_arr[strm_arr<0] = wrfh.NoDataVal                           # Set all channel cells outside forecast basins to WRF-Hydro NoData value
-
-            linkid_arr = Routing_Table(projdir, coarse_grid.proj, strm_arr, fdir, fill, order, gages=frxst_raster)
-            rootgrp2.variables['LINKID'][:] = linkid_arr
-            print('    Process: LINKID written to output netCDF.')
-            del linkid_arr, frxst_raster
+            print('  Reach-based routing files will be created.')
+            rootgrp2 = wrfh.Routing_Table(projdir, rootgrp2, fine_grid, fdir, channelgrid, fill, order, gages=AddGages)
         else:
-            print('    Reach-based routing files will not be created.')
+            print('  Reach-based routing files will not be created.')
         wrfh.remove_file(fill)                                                  # Delete fill from disk
+        wrfh.remove_file(order)                                                  # Delete fill from disk
 
         if Lake_routing:
-            # Alter Channelgrid for reservoirs
+            # Alter Channelgrid for reservoirs and build reservoir inputs
             rootgrp2 = wrfh.add_reservoirs(rootgrp2, projdir, fac, in_lakes, fine_grid, Gridded=gridded)
             rootgrp2.close()                                                        # Close Fulldom_hires.nc file
             del rootgrp2
 
-        # Step 5 - Build groundwater files -- NOT WORKING YET
+        # Build groundwater files
         if GW_with_Stack:
-            print('  Building Groundwater Basin inputs.')
             GWBasns = wrfh.build_GW_Basin_Raster(out_nc2, projdir, defaultGWmethod, channelgrid, fdir, fine_grid, in_Polys=in_GWPolys)
             wrfh.build_GW_buckets(projdir, GWBasns, coarse_grid, Grid=True)
             GWBasns = None
             del GWBasns
-            if defaultGWmethod == 'FullDom LINKID local basins':
-                wrfh.remove_file(os.path.join(projdir, wrfh.sub_basins))                               # Delete sub basins raster from disk
         wrfh.remove_file(fdir)                                                  # Delete fdir from disk
         wrfh.remove_file(fac)                                                   # Delete fac from disk
         wrfh.remove_file(channelgrid)                                           # Delete channelgrid from disk
 
-        # zip the folder
+        # Copmress (zip) the output directory
         tic1 = time.time()
         zipper = wrfh.zipUpFolder(projdir, out_zip, nclist)
         print('Built output .zip file in {0: 3.2f} seconds.'.format(time.time()-tic1))  # Diagnotsitc print statement
 
         # Delete all temporary files
-        #shutil.rmtree(projdir)
+        shutil.rmtree(projdir)
     print('Process completed in {0:3.2f} seconds.'.format(time.time()-tic))
+    tee.close()
+    del tee                                                                     # Should do nothing

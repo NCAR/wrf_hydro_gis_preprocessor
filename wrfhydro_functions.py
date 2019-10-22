@@ -63,26 +63,15 @@ os.environ["PROJ_LIB"] = internal_datadir
 
 # --- Global Variables --- #
 
-# Global attributes for altering the sphere radius used in computations. Do not alter sphere_radius for standard WRF-Hydro simulations
-sphere_radius = 6370000.0                                                       # Radius of sphere to use (WRF Default = 6370000.0m)
-
-#Other Globals
+# GDAL/OGR Raster and Vector outupt driver options
 RasterDriver = 'GTiff'
 VectorDriver = 'ESRI Shapefile'                                                # Output vector file format (OGR driver name)
 
-# Initiate dictionaries of GEOGRID projections and parameters
-#   See http://www.mmm.ucar.edu/wrf/users/docs/user_guide_V3/users_guide_chap3.htm#_Description_of_the_1
-projdict = {1: 'Lambert Conformal Conic',
-            2: 'Polar Stereographic',
-            3: 'Mercator',
-            6: 'Cylindrical Equidistant'}
-CF_projdict = {1: "lambert_conformal_conic",
-                2: "polar_stereographic",
-                3: "mercator",
-                6: "latitude_longitude",
-                0: "crs"}
+# Version numbers toa ppend to metadata
+PpVersion = 'v5.1 (10/2019)'                                                    # WRF-Hydro ArcGIS Pre-processor version to add to FullDom metadata
+CFConv = 'CF-1.5'                                                               # CF-Conventions version to place in the 'Conventions' attribute of RouteLink files
 
-# Output file types
+# Output netCDF format
 outNCType = 'NETCDF4_CLASSIC'                                                   # Define the output netCDF version for RouteLink.nc and LAKEPARM.nc
 
 # Default output file names
@@ -96,40 +85,53 @@ GWGRID_nc = 'GWBASINS.nc'
 GW_ASCII = 'gw_basns_geogrid.txt'                                               # Default Groundwater Basins ASCII grid output
 GW_TBL = 'GWBUCKPARM.TBL'
 StreamSHP = 'streams.shp'                                                       # Default streams shapefile name
+LakesSHP = 'lakes.shp'                                                          # Default lakes shapefile name
+minDepthCSV = 'Lakes_with_minimum_depth.csv'                                    # Output file containing lakes with minimum depth enforced.
+basinRaster = 'GWBasins.tif'                                                    # Output file name for raster grid of groundwater bucket locations
 
-PpVersion = 'v5.2 (09/2019)'                                                    # WRF-Hydro ArcGIS Pre-processor version to add to FullDom metadata
-CFConv = 'CF-1.5'                                                               # CF-Conventions version to place in the 'Conventions' attribute of RouteLink files
-
-# Other Global Variables
+# Global Variables
 NoDataVal = -9999                                                               # Default NoData value for gridded variables
 walker = 3                                                                      # Number of cells to walk downstream before gaged catchment delineation
 LK_walker = 3                                                                   # Number of cells to walk downstream to get minimum lake elevation
 z_limit = 1000.0                                                                # Maximum fill depth (z-limit) between a sink and it's pour point
 lksatfac_val = 1000.0                                                           # Default LKSATFAC value (unitless coefficient)
-minDepth = 1.0                                                                  # Minimum active lake depth for lakes with no elevation variation
 
-# Channel Routing default parameters
+# Channel Routing default parameters for the RouteLink file.
 Qi = 0                                                                          # Initial Flow in link (cms)
 MusK = 3600                                                                     # Muskingum routing time (s)
 MusX = 0.2                                                                      # Muskingum weighting coefficient
 n = 0.035                                                                       # Manning's roughness
 ChSlp = 0.05                                                                    # Channel Side Slope (%; drop/length)
 BtmWdth = 5                                                                     # Bottom Width of Channel (m)
-Kc = 0                                                                          # channel conductivity (mm/hour)
+Kc = 0                                                                          # Channel loss parameter (mm/hour), New for v1.2
+minSo = 0.001                                                                   # Minimum slope
 
 #Default Lake Routing parameters
-OrificeC = 0.1
-OrificA = 1.0
-WeirC = 0.4
+OrificeC = 0.1                                                                  # Default orifice coefficient (0=closed, 1=open)
+OrificA = 1.0                                                                   # Default orifice area (square meters)
+WeirC = 0.4                                                                     # Default weir coefficient (0=closed, 1=open)
 WeirL = 10.0                                                                    # New default prescribed by D. Yates 5/11/2017 (10m default weir length). Old default weir length (0.0m).
 ifd_Val = 0.90                                                                  # Default initial fraction water depth (90%)
-out_LKtype = ['nc']                                                             # Default output lake parameter file format ['nc', 'ascii']
+minDepth = 1.0                                                                  # Minimum active lake depth for lakes with no elevation variation
+ChannelLakeCheck = True                                                         # Ensure (True) lakes intersect the channel network.
 
 # Default groundwater bucket (GWBUCKPARM) parameters
 coeff = 1.0000                                                                  # Bucket model coefficient
 expon = 3.000                                                                   # Bucket model exponent
 zmax = 50.00                                                                    # Conceptual maximum depth of the bucket
 zinit = 10.0000                                                                 # Initial depth of water in the bucket model
+
+# Dictionaries of GEOGRID projections and projection names
+#   See http://www.mmm.ucar.edu/wrf/users/docs/user_guide_V3/users_guide_chap3.htm#_Description_of_the_1
+projdict = {1: 'Lambert Conformal Conic',
+            2: 'Polar Stereographic',
+            3: 'Mercator',
+            6: 'Cylindrical Equidistant'}
+CF_projdict = {1: "lambert_conformal_conic",
+                2: "polar_stereographic",
+                3: "mercator",
+                6: "latitude_longitude",
+                0: "crs"}
 
 # Unify all coordinate system variables to have the same name ("crs"). Ths makes it easier for WRF-Hydro output routines to identify the variable and transpose it to output files
 crsVarname = True                                                               # Switch to make all coordinate system variables = "crs" instead of related to the coordinate system name
@@ -148,11 +150,11 @@ pointSR = 4326                                                                  
 
 # Global attributes for altering the sphere radius used in computations. Do not alter sphere_radius for standard WRF-Hydro simulations
 sphere_radius = 6370000.0                                                       # Radius of sphere to use (WRF Default = 6370000.0m)
-wkt_text = "GEOGCS['GCS_Sphere_CUSTOM',DATUM['D_Sphere',SPHEROID['Sphere',%s,0.0]],PRIMEM['Greenwich',0.0],UNIT['Degree',0.0174532925199433]];-400 -400 1000000000;-100000 10000;-100000 10000;8.99462786704589E-09;0.001;0.001;IsHighPrecision" %sphere_radius
+#wkt_text = "GEOGCS['GCS_Sphere_CUSTOM',DATUM['D_Sphere',SPHEROID['Sphere',%s,0.0]],PRIMEM['Greenwich',0.0],UNIT['Degree',0.0174532925199433]];-400 -400 1000000000;-100000 10000;-100000 10000;8.99462786704589E-09;0.001;0.001;IsHighPrecision" %sphere_radius
 
 # Temporary output file names for Whitebox outputs
+fill_depressions = "fill_depressions.tif"
 dir_d8 = "dir_d8.tif"
-fill_pits = "fill_pits.tif"
 streams = "streams.tif"
 strahler = "strahler.tif"
 sub_basins = "sub_basins.tif"
@@ -196,7 +198,6 @@ class ZipCompat(ZipFile):
             if not os.path.isdir(targetpath):
                 os.mkdir(targetpath)
             return targetpath
-        #target = file(targetpath, "wb")
         target = open(targetpath, "wb")                                         # 5/31/2019: Supporting Python3
         try:
             target.write(self.read(member.filename))
@@ -204,7 +205,7 @@ class ZipCompat(ZipFile):
             target.close()
         return targetpath
 
-class WRF_Hydro_Grid():
+class WRF_Hydro_Grid:
     '''
     Class with which to create the WRF-Hydro grid representation. Provide grid
     information to initiate the class, and use getgrid() to generate a grid mesh
@@ -217,7 +218,8 @@ class WRF_Hydro_Grid():
         '''                                                                                  .
         9/24/2019:
             This function will create a georeferenced raster object as well as projection
-            definition from an input WPS GEOGRID (geo_em.d0*.nc).
+            definition from an input WPS GEOGRID (geo_em.d0*.nc) or WRF-Hydro Fulldom_hires.nc
+            netCDF file.
 
             See the WPS Documentation for more information:
 
@@ -265,8 +267,15 @@ class WRF_Hydro_Grid():
             latitude_of_origin = globalAtts['CEN_LAT'].astype(numpy.float64)
         del globalAtts
 
-        self.nrows = len(dimensions['south_north'])
-        self.ncols = len(dimensions['west_east'])
+        # Handle expected dimension names from either Geogrid or Fulldom
+        if 'south_north' in dimensions:
+            self.nrows = len(dimensions['south_north'])
+        elif 'y' in dimensions:
+            self.nrows = len(dimensions['y'])
+        if 'west_east' in dimensions:
+            self.ncols = len(dimensions['west_east'])
+        elif 'x' in dimensions:
+            self.ncols = len(dimensions['x'])
         del dimensions
 
         # Initiate OSR spatial reference object - See http://gdal.org/java/org/gdal/osr/SpatialReference.html
@@ -406,9 +415,8 @@ class WRF_Hydro_Grid():
                 print('    {0} driver not available.'.format('Memory'))
             gdaltype = gdal_array.NumericTypeCodeToGDALTypeCode(in_arr.dtype)
             DataSet = driver.Create('', in_arr.shape[1], in_arr.shape[0], 1, gdaltype) # the '1' is for band 1.
-            if proj_in:
-                DataSet.SetProjection(self.WKT)
-            DataSet.SetGeoTransform(self.GeoTransform(self))
+            DataSet.SetProjection(self.WKT)
+            DataSet.SetGeoTransform(self.GeoTransform())
             DataSet.GetRasterBand(1).WriteArray(in_arr)                         # Write the array
             #BandWriteArray(DataSet.GetRasterBand(1), in_arr)
             stats = DataSet.GetRasterBand(1).GetStatistics(0,1)                 # Calculate statistics
@@ -436,8 +444,7 @@ class WRF_Hydro_Grid():
             raise SystemExit
 
         # Create output polygon vector file
-        proj_in = self.proj
-        layer = datasource.CreateLayer('boundary', geom_type=ogr.wkbPolygon)
+        layer = datasource.CreateLayer('boundary', self.proj, geom_type=ogr.wkbPolygon)
         if layer is None:
             print('        Layer creation failed.\n')
             raise SystemExit
@@ -452,14 +459,14 @@ class WRF_Hydro_Grid():
         ring.AddPoint(xMin, yMin)
         ring.AddPoint(xMin, yMax)                                     #close ring
         geometry = ogr.Geometry(type=ogr.wkbPolygon)
-        geometry.AssignSpatialReference(proj_in)
+        geometry.AssignSpatialReference(self.proj)
         geometry.AddGeometry(ring)
 
         # Create the feature
         feature = ogr.Feature(LayerDef)                                     # Create a new feature (attribute and geometry)
         feature.SetGeometry(geometry)                                      # Make a feature from geometry object
         layer.CreateFeature(feature)
-        print('Done producing output vector polygon shapefile in {0: 3.2f} seconds'.format(time.time()-tic1))
+        print('  Done producing output vector polygon shapefile in {0: 3.2f} seconds'.format(time.time()-tic1))
         datasource = myRing = feature = layer = None        # geometry
         return geometry
 
@@ -516,7 +523,7 @@ class WRF_Hydro_Grid():
                 except:
                     pass
         # Finish
-        print('    Projected input raster to routing grid in {0: 3.2f} seconds.'.format(time.time()-tic1))
+        print('    Projected input raster to model grid in {0: 3.2f} seconds.'.format(time.time()-tic1))
         return OutRaster
 #gridder_obj = Gridder_Layer(WKT, DX, DY, x00, y00, nrows, ncols)
 
@@ -543,6 +550,14 @@ def zipUpFolder(folder, outZipFile, nclist):
     except RuntimeError:
         print('Exception encountered while trying to write to output zip file.')
         pass
+
+def remove_file(in_file):
+    '''
+    Remove any individual file using os.remove().
+    '''
+    if os.path.exists(in_file):
+        os.remove(in_file)
+    return
 
 def flip_grid(array):
     '''This function takes a three dimensional array and flips it up-down to
@@ -585,124 +600,336 @@ def numpy_to_Raster(in_arr, proj_in=None, DX=1, DY=-1, x00=0, y00=0, quiet=True)
         print('      Created raster in-memory from numpy array in {0:3.2f} seconds.'.format(time.time()-tic1))
     return DataSet
 
-def georeference_geogrid_file(rootgrp):
-    '''                                                                                  .
-    9/24/2019:
-        This function will create a georeferenced raster object as well as projection
-        definition from an input WPS GEOGRID (geo_em.d0*.nc).
+def get_projection_from_raster(in_raster):
+    ''' Get projection from input raster and return.'''
+    proj = osr.SpatialReference()
+    proj.ImportFromWkt(in_raster.GetProjectionRef())
+    return proj
 
-        See the WPS Documentation for more information:
+def save_raster(OutGTiff, in_raster, rows, cols, gdaltype, NoData=None):
 
-        http://www2.mmm.ucar.edu/wrf/users/docs/user_guide_V3/users_guide_chap3.htm
+    target_ds = gdal.GetDriverByName(RasterDriver).Create(OutGTiff, cols, rows, 1, gdaltype)
 
+    band = in_raster.GetRasterBand(1)
+    arr_out = band.ReadAsArray()                                                #Read the data into numpy array
+
+    target_ds.SetGeoTransform(in_raster.GetGeoTransform())
+    target_ds.SetProjection(in_raster.GetProjection())
+    target_ds.GetRasterBand(1).WriteArray(arr_out)
+
+    if NoData is not None:
+        target_ds.GetRasterBand(1).SetNoDataValue(NoDataVal)                    # Set noData
+
+    stats = target_ds.GetRasterBand(1).GetStatistics(0,1)                       # Calculate statistics
+    #stats = target_ds.GetRasterBand(1).ComputeStatistics(0)                    # Force recomputation of statistics
+
+    target_ds.FlushCache()                                                      #saves to disk!!
+    target_ds = None
+    return
+
+def define_projection(input_file, dest_srs):
+    '''
+    This function will define a coordinate system for an input vector layer by
+    overwriting an existing vector layer. It is a workaround to create a layer
+    in-place but with specifying the destingation coordinate system and copyin g
+    all features to the new layer.
+
+    From:
+        https://gis.stackexchange.com/questions/126705/how-to-set-the-spatial-reference-to-a-ogr-layer-using-the-python-api
     '''
     tic1 = time.time()
 
-    # First step: Import and georeference NetCDF file
-    print('Step 1: WPS netCDF projection identification initiated...')
+    driver = ogr.Open(input_file).GetDriver()
+    ds_in = driver.Open(input_file, 0)
+    input_layer = ds_in.GetLayer()
 
-    corner_index = 13                                                           # 13 = Upper left of the Unstaggered grid
+    # Create in-memory output layer to store output
+    drv = ogr.GetDriverByName('MEMORY')                                         # Other options: 'ESRI Shapefile'
+    ds_out = drv.CreateDataSource('')                                      # Create the data source. If in-memory, use '' or some other string as the data source name
+    dest_layer = ds_out.CreateLayer('', dest_srs,
+                input_layer.GetLayerDefn().GetGeomType(),
+                ['OVERWRITE=YES', 'GEOMETRY_NAME=geom', 'DIM=2', 'FID=id'])
 
-    # Read input WPS GEOGRID file
-    # Loop through global variables in NetCDF file to gather projection information
-    globalAtts = rootgrp.__dict__                                               # Read all global attributes into a dictionary
-    map_pro = globalAtts['MAP_PROJ']                                            # Find out which projection this GEOGRID file is in
-    print('    Map Projection: {0}'.format(projdict[map_pro]))
+    # adding fields to new layer
+    layer_definition = ogr.Feature(input_layer.GetLayerDefn())
+    for i in range(layer_definition.GetFieldCount()):
+        dest_layer.CreateField(layer_definition.GetFieldDefnRef(i))
 
-    # Collect grid corner XY and DX DY for creating ascii raster later
-    if 'corner_lats' in globalAtts:
-        corner_lat = globalAtts['corner_lats'][corner_index].astype(numpy.float64)
-    if 'corner_lons' in globalAtts:
-        corner_lon = globalAtts['corner_lons'][corner_index].astype(numpy.float64)
-    if 'DX' in globalAtts:
-        DX = globalAtts['DX'].astype(numpy.float32)
-    if 'DY' in globalAtts:
-        DY = -globalAtts['DY'].astype(numpy.float32)
+    # adding the features from input to dest
+    for i in range(0, input_layer.GetFeatureCount()):
+        feature = input_layer.GetFeature(i)
+        dest_layer.CreateFeature(feature)
 
-    # Collect necessary information to put together the projection file
-    if 'TRUELAT1' in globalAtts:
-        standard_parallel_1 = globalAtts['TRUELAT1'].astype(numpy.float64)
-    if 'TRUELAT2' in globalAtts:
-        standard_parallel_2 = globalAtts['TRUELAT2'].astype(numpy.float64)
-    if 'STAND_LON' in globalAtts:
-        central_meridian = globalAtts['STAND_LON'].astype(numpy.float64)
-    if 'POLE_LAT' in globalAtts:
-        pole_latitude = globalAtts['POLE_LAT'].astype(numpy.float64)
-    if 'POLE_LON' in globalAtts:
-        pole_longitude = globalAtts['POLE_LON'].astype(numpy.float64)
-    if 'MOAD_CEN_LAT' in globalAtts:
-        print('    Using MOAD_CEN_LAT for latitude of origin.')
-        latitude_of_origin = globalAtts['MOAD_CEN_LAT'].astype(numpy.float64)         # Added 2/26/2017 by KMS
-    elif 'CEN_LAT' in globalAtts:
-        print('    Using CEN_LAT for latitude of origin.')
-        latitude_of_origin = globalAtts['CEN_LAT'].astype(numpy.float64)
-    del globalAtts
+    ds_in = input_layer = None                                                  # Dereference all objects from input, except driver
+    driver.DeleteDataSource(input_file)                                         # Delete input file
+    out_ds  = driver.CopyDataSource(ds_out, input_file)                         # Copy datasource to the same filename as input file
+    out_ds = drv = ds_out = dest_layer = layer_definition = feature = None
+    print('    Projection defined for input vector layer in {0:3.2f} seconds.'.format(time.time()-tic1))
+    return
 
-    # Initiate OSR spatial reference object - See http://gdal.org/java/org/gdal/osr/SpatialReference.html
-    proj = osr.SpatialReference()
+def return_raster_array(in_file):
+    '''
+    Read a GDAL-compatible raster file from disk and return the array of raster
+    values as well as the nodata value.
+    '''
+    ds = gdal.Open(in_file, gdalconst.GA_ReadOnly)
+    band = ds.GetRasterBand(1)
+    arr = band.ReadAsArray()
+    ndv = band.GetNoDataValue()                                                 # Obtain nodata value
+    ds = band = None
+    return arr, ndv
 
-    if map_pro == 1:
-        # Lambert Conformal Conic
-        if 'standard_parallel_2' in locals():
-            print('    Using Standard Parallel 2 in Lambert Conformal Conic map projection.')
-            proj.SetLCC(standard_parallel_1, standard_parallel_2, latitude_of_origin, central_meridian, 0, 0)
-            #proj.SetLCC(double stdp1, double stdp2, double clat, double clong, double fe, double fn)        # fe = False Easting, fn = False Northing
-        else:
-            proj.SetLCC1SP(latitude_of_origin, central_meridian, 1, 0, 0)       # Scale = 1???
-            #proj.SetLCC1SP(double clat, double clong, double scale, double fe, double fn)       # 1 standard parallell
+def array_to_points(in_arr, dtype, GT, proj, NoDataVal=-9999):
+    '''
+    Build a point feature class for every grid cell that contains a unique value
+    in the input array.
 
-    elif map_pro == 2:
-        # Polar Stereographic
-        phi1 = standard_parallel_1
+    This function is intended to be used to derive pour points from channel pixels
+    such as lake outlets.
 
-        ### Back out the central_scale_factor (minimum scale factor?) using formula below using Snyder 1987 p.157 (USGS Paper 1395)
-        ##phi = math.copysign(float(pole_latitude), float(latitude_of_origin))    # Get the sign right for the pole using sign of CEN_LAT (latitude_of_origin)
-        ##central_scale_factor = (1 + (math.sin(math.radians(phi1))*math.sin(math.radians(phi))) + (math.cos(math.radians(float(phi1)))*math.cos(math.radians(phi))))/2
+    Assumes input is a 2D numpy array. Seems to only work with integer field type
+    currently.
+    '''
 
-        # Method where central scale factor is k0, Derivation from C. Rollins 2011, equation 1: http://earth-info.nga.mil/GandG/coordsys/polar_stereographic/Polar_Stereo_phi1_from_k0_memo.pdf
-        # Using Rollins 2011 to perform central scale factor calculations. For a sphere, the equation collapses to be much  more compact (e=0, k90=1)
-        central_scale_factor = (1 + math.sin(math.radians(abs(phi1))))/2        # Equation for k0, assumes k90 = 1, e=0. This is a sphere, so no flattening
-        print('        Central Scale Factor: {0}'.format(central_scale_factor))
+    tic1 = time.time()
+    valField = 'VALUE'
+    xMin, DX, xskew, yMax, yskew, DY = GT
 
-        #proj1.SetPS(latitude_of_origin, central_meridian, central_scale_factor, 0, 0)    # example: proj1.SetPS(90, -1.5, 1, 0, 0)
-        proj.SetPS(pole_latitude, central_meridian, central_scale_factor, 0, 0)    # Adjusted 8/7/2017 based on changes made 4/4/2017 as a result of Monaghan's polar sterographic domain. Example: proj1.SetPS(90, -1.5, 1, 0, 0)
-        #proj.SetPS(double clat, double clong, double scale, double fe, double fn)
+    # Create in-memory output layer to store projected and/or clipped polygons
+    drv = ogr.GetDriverByName('MEMORY')                                         # Other options: 'ESRI Shapefile'
+    data_source = drv.CreateDataSource('')                                      # Create the data source. If in-memory, use '' or some other string as the data source name
+    outLayer = data_source.CreateLayer('', proj, ogr.wkbPoint)               # Create the layer name. Use '' or some other string as the layer name
+    outLayer.CreateField(ogr.FieldDefn(valField, dtype))                         # Add a single field to the new layer
+    outlayerDef = outLayer.GetLayerDefn()
 
-    elif map_pro == 3:
-        # Mercator Projection
-        proj.SetMercator(latitude_of_origin, central_meridian, 1, 0, 0)     # Scale = 1???
-        #proj.SetMercator(double clat, double clong, double scale, double fe, double fn)
+    # col, row to x, y   From https://www.perrygeo.com/python-affine-transforms.html
+    uniques = numpy.unique(in_arr[in_arr!=NoDataVal])                           # Determine unique values
+    for idval in uniques:
+        locs = numpy.where(in_arr==idval)
+        for j, i in zip(locs[0], locs[1]):
+            x = (i * DX) + xMin + float(DX/2)
+            y = (j * DY) + yMax + float(DY/2)
 
-    elif map_pro == 6:
-        # Cylindrical Equidistant (or Rotated Pole)
-        if pole_latitude != float(90) or pole_longitude != float(0):
-            # if pole_latitude, pole_longitude, or stand_lon are changed from thier default values, the pole is 'rotated'.
-            print('[PROBLEM!] Cylindrical Equidistant projection with a rotated pole is not currently supported.')
-            raise SystemExit
-        else:
-            proj.SetEquirectangular(latitude_of_origin, central_meridian, 0, 0)
-            #proj.SetEquirectangular(double clat, double clong, double fe, double fn)
-            #proj.SetEquirectangular2(double clat, double clong, double pseudostdparallellat, double fe, double fn)
+            # Build output feature
+            outFeature = ogr.Feature(outlayerDef)
+            outFeature.SetField(valField, int(idval))                                    # Set pixel value attribute
+            wkt = "POINT({0} {1})".format(x, y)                                       # create the WKT for the feature using Python string formatting
+            point = ogr.CreateGeometryFromWkt(wkt)                                  # Create the point from the Well Known Txt
+            outFeature.SetGeometry(point)                                           # Set the feature geometry using the point
+            outLayer.CreateFeature(outFeature)                                            # Create the feature in the layer (shapefile)
+            outFeature.Destroy()
+            outFeature = point = None                                               # Dereference the feature
+    outLayer = None
+    return data_source
 
-    # Set Geographic Coordinate system (datum) for projection
-    proj.SetGeogCS('WRF_Sphere', 'Sphere', '', sphere_radius, 0.0)              # Could try 104128 (EMEP Sphere) well-known?
-    #proj.SetGeogCS(String pszGeogName, String pszDatumName, String pszSpheroidName, double dfSemiMajor, double dfInvFlattening)
+def ReprojectCoords(xcoords, ycoords, src_srs, tgt_srs):
+    '''
+    Adapted from:
+        https://gis.stackexchange.com/questions/57834/how-to-get-raster-corner-coordinates-using-python-gdal-bindings
+     Reproject a list of x,y coordinates.
+    '''
+    tic1 = time.time()
 
-    # Set the origin for the output raster (in GDAL, usuall upper left corner) using projected corner coordinates
-    wgs84_proj = osr.SpatialReference()
-    #wgs84_proj.ImportFromEPSG(4326)
-    wgs84_proj.ImportFromProj4(wgs84_proj4)
-    transform = osr.CoordinateTransformation(wgs84_proj, proj)
-    point = ogr.Geometry(ogr.wkbPoint)
-    point.AddPoint_2D(corner_lon, corner_lat)
-    point.Transform(transform)
-    x00 = point.GetX(0)
-    y00 = point.GetY(0)
-    del point, transform, wgs84_proj
+    # Setup coordinate transform
+    transform = osr.CoordinateTransformation(src_srs, tgt_srs)
 
-    # Process: Define Projection
-    print('    Step 1 completed without error in {0: 3.2f} seconds.'.format(time.time()-tic1))
-    return proj, map_pro, DX, DY, x00, y00
+    ravel_x = numpy.ravel(xcoords)
+    ravel_y = numpy.ravel(ycoords)
+    trans_x = numpy.zeros(ravel_x.shape, ravel_x.dtype)
+    trans_y = numpy.zeros(ravel_y.shape, ravel_y.dtype)
+
+    for num,(x,y) in enumerate(zip(ravel_x, ravel_y)):
+        x1,y1,z = transform.TransformPoint(x,y)
+        trans_x[num] = x1
+        trans_y[num] = y1
+
+    # reshape transformed coordinate arrays of the same shape as input coordinate arrays
+    trans_x = trans_x.reshape(*xcoords.shape)
+    trans_y = trans_y.reshape(*ycoords.shape)
+    print('Completed transforming coordinate pairs [{0}] in {1: 3.2f} seconds.'.format(num, time.time()-tic1))
+    return trans_x, trans_y
+
+# Function for using forecast points
+def FeatToRaster(InputVector, inRaster, fieldname, dtype, NoData=None):
+    '''
+    This function will take a point shapefile and rasterize it. The point feature
+    class must have a field in it with values of 1, which is an optional input
+    to the RasterizeLayer function. Currently, this field is named PURPCODE. The
+    result is a raster of NoData and 1 values, which is used as the "Input
+    Depression Mask Grid" in TauDEM's PitRemove tool.
+    '''
+    # Python GDAL_RASTERIZE syntax, adatped from:
+    #    https://gis.stackexchange.com/questions/212795/rasterizing-shapefiles-with-gdal-and-python
+
+    # Open Raster input
+    ds = gdal.Open(inRaster, gdalconst.GA_ReadOnly)
+
+    # Get shapefile information
+    in_vector = ogr.Open(InputVector)
+    in_layer = in_vector.GetLayer()
+    driver = gdal.GetDriverByName('Mem')                                        # Write to Memory
+    target_ds = driver.Create('', ds.RasterXSize, ds.RasterYSize, 1, dtype)
+
+    # Copy input raster info to output (SpatialReference, Geotransform, etc)
+    CopyDatasetInfo(ds, target_ds)
+    band = target_ds.GetRasterBand(1)
+    if NoData is not None:
+        band.SetNoDataValue(NoData)
+    band.FlushCache()
+    gdal.RasterizeLayer(target_ds, [1], in_layer, options=["ATTRIBUTE=%s" %fieldname])
+    stats = target_ds.GetRasterBand(1).GetStatistics(0,1)                       # Calculate statistics on new raster
+    return target_ds
+
+def project_Polygons(InputVector, outProj, clipGeom=None):
+    '''
+    This function is intended to project a polygon geometry to a new coordinate
+    system. Optionally, the geometries can be clipped to an extent rectangle. If
+    this option is chosen, the area will be re-calculated for each polygon. The
+    assumption is that the linear units are meters.
+    '''
+    # (InputVector, outProj, clipGeom) = (in_lakes, proj, geom)
+    # import ogr
+    tic1 = time.time()
+
+    # Get input vector information
+    in_vect = ogr.Open(InputVector)                                             # Read the input vector file
+    in_layer = in_vect.GetLayer()                                               # Get the 'layer' object from the data source
+    in_proj = in_layer.GetSpatialRef()                                          # Obtain the coordinate reference object.
+    inlayerDef = in_layer.GetLayerDefn()                                        # Obtain the layer definition for this layer
+
+    # Check if a coordinate transformation (projection) must be performed
+    if not outProj.IsSame(in_proj):
+        print('    Input shapefile projection does not match requested output. Transforming.')
+        coordTrans = osr.CoordinateTransformation(in_proj, outProj)
+        trans = True
+
+    # Create in-memory output layer to store projected and/or clipped polygons
+    drv = ogr.GetDriverByName('MEMORY')                                         # Other options: 'ESRI Shapefile'
+    data_source = drv.CreateDataSource('')                                      # Create the data source. If in-memory, use '' or some other string as the data source name
+    outLayer = data_source.CreateLayer('', outProj, ogr.wkbPolygon)             # Create the layer name. Use '' or some other string as the layer name
+
+    # Build output vector file identical to input with regard to fields
+    outLayer.CreateField(ogr.FieldDefn('AREASQKM', ogr.OFTReal))                # Add a single field to the new layer
+
+    # Copy fields from input vector layer to output
+    fieldNames = []                                                             # Build empty list of field names
+    layer_definition = ogr.Feature(inlayerDef)
+    for i in range(layer_definition.GetFieldCount()):
+        fieldDef = layer_definition.GetFieldDefnRef(i)                          # Get the field definition for this field
+        outLayer.CreateField(fieldDef)                                          # Create a field in the output that matches the field in the input layer
+        fieldNames.append(fieldDef.GetName())                                   # Add field name to list of field names
+    layer_defininition = None
+    outlayerDef = outLayer.GetLayerDefn()
+
+    # Read all features in layer
+    inFeatCount = in_layer.GetFeatureCount()                                    # Get number of input features
+    for feature in in_layer:
+        geometry = feature.GetGeometryRef()                                     # Get the geometry object from this feature
+        if trans:
+            geometry.Transform(coordTrans)                                      # Transform the geometry
+        if clipGeom:
+            if clipGeom.Intersects(geometry):
+                geometry = geometry.Intersection(clipGeom)                      # Clip the geometry if requested
+            else:
+                continue                                                        # Go to the next feature (do not copy)
+
+        # Create output Feature
+        outFeature = ogr.Feature(outlayerDef)                                   # Create new feature
+        outFeature.SetGeometry(geometry)                                        # Set output Shapefile's feature geometry
+
+        # Fill in fields. All fields in input will be transferred to output
+        outFeature.SetField('AREASQKM', float(geometry.Area()/1000000.0))       # Add an area field to re-calculate area
+        for fieldname in fieldNames:
+            outFeature.SetField(fieldname, feature.GetField(fieldname))
+        outLayer.CreateFeature(outFeature)                                      # Add new feature to output Layer
+        feature.Destroy()                                                       # Destroy this feature
+        feature = outFeature = geometry = None                                  # Clear memory
+    outLayer.ResetReading()
+    outFeatCount = outLayer.GetFeatureCount()                                   # Get number of features in output layer
+    #outLayer = None                                                             # Clear memory
+
+    print('    Number of output polygons: {0} of {1}'.format(outFeatCount, inFeatCount))
+    print('  Completed reprojection and-or clipping in {0:3.2f} seconds.'.format(time.time()-tic1))
+    in_vect = inlayerDef = in_layer = None
+    return data_source, outLayer, fieldNames
+
+def raster_to_polygon(in_raster, in_proj, geom_typ=ogr.wkbPolygon):
+    '''
+    Convert a raster object to a polygon layer.
+    '''
+    tic1 = time.time()
+
+    # Create temporary polygon vector layer
+    ds = ogr.GetDriverByName('MEMORY').CreateDataSource('')
+    Layer = ds.CreateLayer('', geom_type=geom_typ, srs=in_proj)   # Use projection from input raster
+    Layer.CreateField(ogr.FieldDefn('RASTERVALU', ogr.OFTReal))
+
+    # Get raster band information
+    band = in_raster.GetRasterBand(1)                                           # Get raster band 1
+    stats = band.ComputeStatistics(0)                                       # Force recomputation of statistics
+
+    # Polygonize the raster and write features to in-memory vector layer
+    result = gdal.Polygonize(band, band, Layer, 0, ["8CONNECTED=8"], callback=None)     # With 8-connectedness
+    if result != 0:
+        print('Polygonize raster failed')
+    else:
+        print('  Created polygon from input raster in {0: 3.2f} seconds'.format(time.time()-tic1))
+
+    #feature = Layer.GetNextFeature()
+    return ds, Layer
+
+def dissolve_polygon_to_multipolygon(inDS, inLayer, fieldname, quiet=True):
+    '''
+    This function will dissolve the polygons in an input polygon feature layer
+    and provide an output in-memory multipolygon layer with the dissolved geometries.
+    '''
+    tic1 = time.time()
+    in_proj = inLayer.GetSpatialRef()
+
+    # Create temporary polygon vector layer
+    ds = ogr.GetDriverByName('MEMORY').CreateDataSource('')
+    outLayer = ds.CreateLayer('', geom_type=ogr.wkbMultiPolygon, srs=in_proj)   # Use projection from input raster
+    inlayerDef = inLayer.GetLayerDefn()                                        # Obtain the layer definition for this layer
+
+    # Copy fields from input vector layer to output
+    fieldNames = []                                                             # Build empty list of field names
+    for i in range(inlayerDef.GetFieldCount()):
+        fieldDef = inlayerDef.GetFieldDefn(i)                                   # Get the field definition for this field
+        fieldName =  fieldDef.GetName()                                         # Get the field name for this field
+        outLayer.CreateField(ogr.FieldDefn(fieldName, fieldDef.GetType()))      # Create a field in the output that matches the field in the input layer
+        fieldNames.append(fieldName)                                            # Add field name to list of field names
+    outlayerDef = outLayer.GetLayerDefn()
+    inlayerDef = None
+
+    # Set up list of unique lake IDs over which to dissolve singlepart to multiapart polygons
+    valuelist = set([feature.GetField(fieldname) for feature in inLayer])       # Get list of unique IDs
+    inLayer.ResetReading()                                                      # Reset layer
+    for idval in valuelist:
+        inLayer.SetAttributeFilter('"%s" = %s' %(fieldname, idval))         # Select the ID from the layer
+        polygeom = ogr.Geometry(ogr.wkbMultiPolygon)
+        for feature in inLayer:
+            polygeom.AddGeometry(feature.GetGeometryRef())
+        #polygeom = polygeom.UnionCascaded()
+        if not quiet:
+            print('  [{0}] Number of features in the original polygon: {1},  multipolygon: {2}'.format(int(idval), inLayer.GetFeatureCount(), polygeom.GetGeometryCount()))
+
+        # Create output Feature
+        outFeature = ogr.Feature(outlayerDef)                                   # Create new feature
+        outFeature.SetGeometry(polygeom)                                        # Set output Shapefile's feature geometry
+
+        # Fill in fields. All fields in input will be transferred to output
+        for fieldname in fieldNames:
+            if fieldname == 'AREASQKM':
+                outFeature.SetField(fieldname, float(polygeom.Area()/1000000.0))       # Add an area field to re-calculate area
+            else:
+                outFeature.SetField(fieldname, feature.GetField(fieldname))
+        outLayer.CreateFeature(outFeature)                                      # Add new feature to output Layer
+        feature = outFeature = polygeom = None                                  # Clear memory
+        inLayer.SetAttributeFilter(None)
+    inlayerDef = outlayerDef = outLayer = None
+    del idval, fieldNames, valuelist, in_proj
+    print('    Done dissolving input layer in {0:3.2f} seconds.'.format(time.time()-tic1))
+    return ds
 
 def add_CRS_var(rootgrp, sr, map_pro, CoordSysVarName, grid_mapping, PE_string, GeoTransformStr=None):
     '''
@@ -796,39 +1023,6 @@ def add_CRS_var(rootgrp, sr, map_pro, CoordSysVarName, grid_mapping, PE_string, 
     rootgrp.Conventions = CFConv                                                # Maybe 1.0 is enough?
     return rootgrp
 
-def get_projection_from_raster(in_raster):
-    ''' Get projection from input raster and return.'''
-    proj = osr.SpatialReference()
-    proj.ImportFromWkt(in_raster.GetProjectionRef())
-    return proj
-
-def ReprojectCoords(xcoords, ycoords, src_srs, tgt_srs):
-    '''
-    Adapted from:
-        https://gis.stackexchange.com/questions/57834/how-to-get-raster-corner-coordinates-using-python-gdal-bindings
-     Reproject a list of x,y coordinates.
-    '''
-    tic1 = time.time()
-
-    # Setup coordinate transform
-    transform = osr.CoordinateTransformation(src_srs, tgt_srs)
-
-    ravel_x = numpy.ravel(xcoords)
-    ravel_y = numpy.ravel(ycoords)
-    trans_x = numpy.zeros(ravel_x.shape, ravel_x.dtype)
-    trans_y = numpy.zeros(ravel_y.shape, ravel_y.dtype)
-
-    for num,(x,y) in enumerate(zip(ravel_x, ravel_y)):
-        x1,y1,z = transform.TransformPoint(x,y)
-        trans_x[num] = x1
-        trans_y[num] = y1
-
-    # reshape transformed coordinate arrays of the same shape as input coordinate arrays
-    trans_x = trans_x.reshape(*xcoords.shape)
-    trans_y = trans_y.reshape(*ycoords.shape)
-    print('Completed transforming coordinate pairs [{0}] in {1: 3.2f} seconds.'.format(num, time.time()-tic1))
-    return trans_x, trans_y
-
 def create_CF_NetCDF(grid_obj, rootgrp, projdir, addLatLon=False, notes='', addVars=[], latArr=None, lonArr=None):
     """This function will create the netCDF file with CF conventions for the grid
     description. Valid output formats are 'GEOGRID', 'ROUTING_GRID', and 'POINT'.
@@ -838,7 +1032,7 @@ def create_CF_NetCDF(grid_obj, rootgrp, projdir, addLatLon=False, notes='', addV
     using the getxy function."""
 
     tic1 = time.time()
-    print('Creating CF-netCDF File.')
+    print('  Creating CF-netCDF File.')
 
     # Build Esri WKT Projection string to store in CF netCDF file
     projEsri = grid_obj.proj.Clone()                                            # Copy the SRS
@@ -857,7 +1051,6 @@ def create_CF_NetCDF(grid_obj, rootgrp, projdir, addLatLon=False, notes='', addV
     # Create Dimensions
     dim_y = rootgrp.createDimension('y', grid_obj.nrows)
     dim_x = rootgrp.createDimension('x', grid_obj.ncols)
-    print('    Dimensions created after {0: 3.2f} seconds.'.format(time.time()-tic1))
 
     # Create coordinate variables
     var_y = rootgrp.createVariable('y', 'f8', 'y')                              # (64-bit floating point)
@@ -917,7 +1110,6 @@ def create_CF_NetCDF(grid_obj, rootgrp, projdir, addLatLon=False, notes='', addV
     var_x[:] = xmap[0,:]                                                        # Assumes even spacing in x across domain
     ymap = xmap = None
     del ymap, xmap
-    print('    Coordinate variables and variable attributes set after {0: 3.2f} seconds.'.format(time.time()-tic1))
 
     if addLatLon == True:
         print('    Proceeding to add LATITUDE and LONGITUDE variables after {0: 8.2f} seconds.'.format(time.time()-tic1))
@@ -964,7 +1156,6 @@ def create_CF_NetCDF(grid_obj, rootgrp, projdir, addLatLon=False, notes='', addV
         # Populate netCDF variables using input numpy arrays
         lat_WRF[:] = latArr
         lon_WRF[:] = lonArr
-        print('    LATITUDE and LONGITUDE variables and variable attributes set after {0: 3.2f} seconds.'.format(time.time()-tic1))
 
     # Global attributes
     rootgrp.GDAL_DataType = 'Generic'
@@ -973,41 +1164,10 @@ def create_CF_NetCDF(grid_obj, rootgrp, projdir, addLatLon=False, notes='', addV
     rootgrp.history = 'Created {0}'.format(time.ctime())
     rootgrp.processing_notes = notes
     rootgrp.spatial_ref = PE_string                                             # For GDAl
-    print('    netCDF global attributes set after {0: 3.2f} seconds.'.format(time.time()-tic1))
+    print('  netCDF global attributes set after {0: 3.2f} seconds.'.format(time.time()-tic1))
 
     # Return the netCDF file to the calling script
     return rootgrp, grid_mapping
-
-### Function to reclassify values in a raster
-##def reclassifyRaster(array, thresholdDict):
-##    '''
-##    Apply a dictionary of thresholds to an array for reclassification.
-##    This function may be made more complicated as necessary
-##    '''
-##    # Reclassify array using bounds and new classified values
-##    new_arr = array.copy()
-##    for newval, oldval in thresholdDict.iteritems():
-##        mask = numpy.where(array==oldval)
-##        new_arr[mask] = newval
-##    del array
-##    return new_arr
-##
-### Function to calculate statistics on a raster using gdalinfo command-line
-##def calcStats(inRaster):
-##    print('    Calculating statistics on %s' %inRaster)
-##    subprocess.call('gdalinfo -stats %s' %inRaster, shell=True)
-##
-##def apply_threshold(array, thresholdDict):
-##    '''
-##    Apply a dictionary of thresholds to an array for reclassification.
-##    This function may be made more complicated as necessary
-##    '''
-##
-##    # Reclassify array using bounds and new classified values
-##    for newval, bounds in thresholdDict.iteritems():
-##        mask = numpy.where((array > bounds[0]) & (array <= bounds[1]))          # All values between bounds[0] and bounds[1]
-##        array[mask] = newval
-##    return array
 
 def build_GW_Basin_Raster(in_nc, projdir, in_method, strm, fdir, grid_obj, in_Polys=None):
     '''
@@ -1017,6 +1177,7 @@ def build_GW_Basin_Raster(in_nc, projdir, in_method, strm, fdir, grid_obj, in_Po
     groundwater bucket parameter tables in 1D and 2D for input to WRF-Hydro.
     '''
 
+    #(in_nc, in_method, strm, grid_obj, in_Polys) = (inFulldom, defaultGWmethod, channelgrid, fine_grid, in_GWPolys)
     tic1 = time.time()
     print('Beginning to build 2D groundwater basin inputs')
     print('  Building groundwater inputs using {0}'.format(in_method))
@@ -1027,7 +1188,7 @@ def build_GW_Basin_Raster(in_nc, projdir, in_method, strm, fdir, grid_obj, in_Po
 
         # Create a raster layer from the netCDF
         rootgrp = netCDF4.Dataset(in_nc, 'r')                                      # Read-only on FullDom file
-        GWBasns = numpy_to_Raster(rootgrp.variables['basn_msk'][:], grid_obj.proj, grid_obj.DX, grid_obj.DY, grid_obj.x00, grid_obj.y00)
+        GWBasns = grid_obj.numpy_to_Raster(rootgrp.variables['basn_msk'][:])
         rootgrp.close()
         del rootgrp
 
@@ -1043,40 +1204,51 @@ def build_GW_Basin_Raster(in_nc, projdir, in_method, strm, fdir, grid_obj, in_Po
         # Temporary outputs
         streams = os.path.basename(strm)
         dir_d8 = os.path.basename(fdir)
+        sub_basins_file = os.path.join(projdir, sub_basins)
 
         # Build sub-basins, one for each reach
         wbt.subbasins(dir_d8, streams, sub_basins, esri_pntr=esri_pntr)
 
         # Create raster object from output
-        sub_basins_file = os.path.join(projdir, sub_basins)
         GWBasns = gdal.Open(sub_basins_file, gdalconst.GA_ReadOnly)
+        ##        SubBasns = gdal.Open(sub_basins_file, gdalconst.GA_ReadOnly)
+        ##        band = SubBasns.GetRasterBand(1)
+        ##
+        ##        # Attempt to create an in-memory object to pass back, so sub-basin file can be deleted here.
+        ##        GWBasns = gdal.GetDriverByName('Mem').Create('', SubBasns.RasterXSize,
+        ##                SubBasns.RasterYSize, 1, band.DataType)
+        ##        CopyDatasetInfo(SubBasns, GWBasns)                                      # Copy information from input to output
+        ##        GWBasns.GetRasterBand(1).WriteArray(band.ReadAsArray())                 # Write the array
+        ##        SubBasns = band = None
+        ##        remove_file(sub_basins_file)
 
     elif in_method == 'Polygon Shapefile or Feature Class':
         print('    Groundwater  polygon shapefile input: {0}'.format(in_Polys))
 
-        # Setup empty output
-        #GWBasns = gdal.GetDriverByName('Mem').Create('poly_basins', DX, DY, 1, gdal.GDT_Int32)
-        #GWBasns.SetProjection(grid_obj.WKT)
-        #GWBasns.SetGeoTransform((xMin, DX, 0, yMax, 0, DY))
-        #band = GWBasns.GetRasterBand(1)
-        #band.SetNoDataValue(NoDataVal)
-        #band.FlushCache()
+        # Project the input polygons to the output coordinate system
+        Poly_FC = os.path.join(projdir, 'Projected_GW_Basins.shp')
+        poly_ds, poly_layer, fieldNames = project_Polygons(in_Polys, grid_obj.proj)
+        out_ds = ogr.GetDriverByName(VectorDriver).CopyDataSource(poly_ds, Poly_FC) # Copy to file on disk
+        poly_layer = poly_ds = None
 
-        # Read polygon geometry
-        #in_vect = ogr.Open(in_Polys)
-        #in_layer = in_vect.GetLayer()
+        # Assign a new ID field for basins, numbered 1...n. Add field to store this information if necessary
+        print('    Adding auto-incremented basin ID field (1...n)')
+        poly_layer = out_ds.GetLayer()
+        basinID = "newID"
+        if basinID not in fieldNames:
+            poly_layer.CreateField(ogr.FieldDefn(basinID, ogr.OFTInteger))
+        for num,feature in enumerate(poly_layer):
+            feature.SetField(basinID, num+1)      # Add an area field to re-calculate area
+            poly_layer.SetFeature(feature)
+        poly_layer.ResetReading()
+        feature = out_ds = poly_layer = None
+        del fieldNames
 
-        # Resolve basins on the fine grid
-        #gdal.RasterizeLayer(GWBasns, [1], in_layer, options=["ATTRIBUTE=FID"])
-        #in_vect = in_layer = band = None
+        # Convert from polygon features to raster object.
+        GWBasns = FeatToRaster(Poly_FC, strm, basinID, gdal.GDT_Int32, NoData=NoDataVal)
+        ogr.GetDriverByName(VectorDriver).DeleteDataSource(Poly_FC)             # Delete temporary shapefile
 
-        # Open raster which will be used as a template
-        template_raster = gdal.Open(strm, gdalconst.GA_ReadOnly)
-
-        GWBasns = FeatToRaster(in_Polys, template_raster, 'FID', gdal.GDT_Int32, NoData=NoDataVal)
-        template_raster = None
-
-    print('Finished building groundwater basin grids in {0: 3.2f} seconds'.format(time.time()-tic1))
+    print('Finished building fine-grid groundwater basin grids in {0: 3.2f} seconds'.format(time.time()-tic1))
     return GWBasns
 
 def build_GWBASINS_nc(GW_BUCKS, out_dir, grid_obj):
@@ -1171,7 +1343,7 @@ def build_GWBUCKPARM(out_dir, cat_areas, cat_comids):
     del tic1, Community, cat_areas, cat_comids
     return
 
-def build_GW_buckets(out_dir, GWBasns, grid_obj, Grid=True):
+def build_GW_buckets(out_dir, GWBasns, grid_obj, Grid=True, saveRaster=False):
     '''
     5/17/2017: This function will build the groundwater bucket grids and parameter
                tables.
@@ -1193,7 +1365,7 @@ def build_GW_buckets(out_dir, GWBasns, grid_obj, Grid=True):
     '''
 
     tic1 = time.time()
-    print('Beginning to build groundwater inputs')
+    print('Beginning to build coarse-grid groundwater basins and parameters')
 
     # Read basin information from the array
     GWBasns_arr = BandReadAsArray(GWBasns.GetRasterBand(1))                     # Read input raster into array
@@ -1237,12 +1409,17 @@ def build_GW_buckets(out_dir, GWBasns, grid_obj, Grid=True):
     del UniqueVals2
 
     # Build rasters and arrays to create the NC or ASCII outputs
-    GW_BUCKS = numpy_to_Raster(GWBasns_arr3, grid_obj.proj, grid_obj.DX, grid_obj.DY, grid_obj.x00, grid_obj.y00)
+    GW_BUCKS = grid_obj.numpy_to_Raster(GWBasns_arr3)
     del GWBasns_arr3, idx, to_values, new_ndv
 
     # If requested, create 2D gridded bucket parameter table
-    if Grid == True:
+    if Grid:
         build_GWBASINS_nc(GW_BUCKS, out_dir, grid_obj)
+
+    # If requested, save a raster object of the 2D groundwater grid
+    if saveRaster:
+        out_ds = gdal.GetDriverByName(RasterDriver).CreateCopy(os.path.join(out_dir, basinRaster), GW_BUCKS)
+        out_ds = None
 
     # Alternate method to obtain IDs - read directly from raster attribute table
     print('    Calculating size and ID parameters for basin polygons.')
@@ -1261,58 +1438,6 @@ def build_GW_buckets(out_dir, GWBasns, grid_obj, Grid=True):
     print('Finished building groundwater parameter files in {0: 3.2f} seconds'.format(time.time()-tic1))
     return
 
-def return_raster_array(in_file):
-    '''
-    Read a GDAL-compatible raster file from disk and return the array of raster
-    values as well as the nodata value.
-    '''
-    ds = gdal.Open(in_file, gdalconst.GA_ReadOnly)
-    band = ds.GetRasterBand(1)
-    arr = band.ReadAsArray()
-    ndv = band.GetNoDataValue()                                                 # Obtain nodata value
-    ds = band = None
-    return arr, ndv
-
-def getxy(ds):
-    """
-    This function will use the affine transformation (GeoTransform) to produce an
-    array of X and Y 1D arrays. Note that the GDAL affine transformation provides
-    the grid cell coordinates from the upper left corner. This is typical in GIS
-    applications. However, WRF uses a south_north ordering, where the arrays are
-    written from the bottom to the top.
-
-    The input raster object will be used as a template for the output rasters.
-    """
-    print('    Starting Process: Building to XMap/YMap')
-    nrows = ds.RasterYSize
-    ncols = ds.RasterXSize
-    xMin, DX, xskew, yMax, yskew, DY = ds.GetGeoTransform()
-    del ds, xskew, yskew
-
-    # Build i,j arrays
-    j = numpy.arange(nrows) + float(0.5)                                        # Add 0.5 to estimate coordinate of grid cell centers
-    i = numpy.arange(ncols) + float(0.5)                                        # Add 0.5 to estimate coordinate of grid cell centers
-
-    # col, row to x, y   From https://www.perrygeo.com/python-affine-transforms.html
-    x = (i * DX) + xMin
-    y = (j * DY) + yMax
-    del i, j, DX, DY, xMin, yMax
-
-    # Create 2D arrays from 1D
-    xmap = numpy.repeat(x[numpy.newaxis, :], y.shape, 0)
-    ymap = numpy.repeat(y[:, numpy.newaxis], x.shape, 1)
-    del x, y
-    print('    Conversion of input raster to XMap/YMap completed without error.')
-    return xmap, ymap
-
-def remove_file(in_file):
-    '''
-    Remove any individual file using os.remove().
-    '''
-    if os.path.exists(in_file):
-        os.remove(in_file)
-    return
-
 def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtfac_val, lksatfac_val):
     """
     This function is intended to produce the hydroglocial DEM corrections and derivitive
@@ -1320,21 +1445,33 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
     """
 
     tic1 = time.time()
-    print('Step 4 initiated...')
+    print('Terrain processing step initiated...')
 
     # Whitebox options for running Whitebox in a full workflow
     wbt = WhiteboxTools()
+    wbt.work_dir = projdir
+    wbt.verbose = False
     esri_pntr = True
     zero_background = True
-    wbt.verbose = False
-    wbt.work_dir = projdir
+    fix_flats = True
+    Full_Workflow = False
+    fill_deps = True
 
-    # Temporary output files
     flow_acc = "flow_acc.tif"
-    fac_type = 'cells'                          # ['cells', 'sca' (default), ca']
-
-    # Perform Fill, Flow Direction, and Flow Accumulation in one step
-    wbt.flow_accumulation_full_workflow(indem, fill_pits, dir_d8, flow_acc, out_type=fac_type, esri_pntr=esri_pntr)
+    fill_pits = "fill_pits.tif"
+    if Full_Workflow:
+        # Perform Fill, Flow Direction, and Flow Accumulation in one step
+        fac_type = 'cells'                          # ['cells', 'sca' (default), ca']
+        wbt.flow_accumulation_full_workflow(indem, fill_pits, dir_d8, flow_acc, out_type=fac_type, esri_pntr=esri_pntr)
+    else:
+        # Runs each whitebox tool separately
+        wbt.fill_single_cell_pits(indem, fill_pits)
+        if fill_deps:
+            wbt.fill_depressions(fill_pits, fill_depressions, fix_flats=fix_flats)
+            remove_file(os.path.join(projdir, fill_pits))                       # Delete temporary file
+            fill_pits = fill_depressions
+        wbt.d8_pointer(fill_pits, dir_d8, esri_pntr=esri_pntr)
+        wbt.d8_flow_accumulation(fill_pits, flow_acc)
 
     # Process: Fill DEM
     fill_pits_file = os.path.join(projdir, fill_pits)
@@ -1342,7 +1479,6 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
     fill_arr[fill_arr==ndv] = NoDataVal                                         # Replace raster NoData with WRF-Hydro NoData value
     rootgrp.variables['TOPOGRAPHY'][:] = fill_arr
     print('    Process: TOPOGRAPHY written to output netCDF.')
-    #remove_file(fill_pits_file)                                                 # Delete temporary file
     del fill_arr, ndv       #, fill_pits_file
 
     # Process: Flow Direction
@@ -1370,7 +1506,6 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
     del strm_arr, ndv, flow_acc
 
     # Process: Stream Order
-    #wbt.strahler_stream_order(dir_d8, streams, strahler, esri_pntr=esri_pntr, zero_background=zero_background)
     wbt.strahler_stream_order(dir_d8, streams, strahler, esri_pntr=esri_pntr, zero_background=False)
     strahler_file = os.path.join(projdir, strahler)
     strahler_arr, ndv = return_raster_array(strahler_file)                # FLOAT DTYPE?
@@ -1379,8 +1514,7 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
     strahler_arr[strahler_arr==ndv] = NoDataVal
     rootgrp.variables['STREAMORDER'][:] = strahler_arr
     print('    Process: STREAMORDER written to output netCDF.')
-    remove_file(strahler_file)
-    del strahler_arr, ndv, strahler_file
+    del strahler_arr, ndv
 
     # Create initial constant raster of value retdeprtfac_val
     rootgrp.variables['RETDEPRTFAC'][:] = float(retdeprtfac_val)
@@ -1399,74 +1533,8 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
     rootgrp.variables['basn_msk'][:] = NoDataVal
     rootgrp.variables['LAKEGRID'][:] = NoDataVal
 
-    print('    Step 4 completed without error in {0: 3.2f} seconds.'.format(time.time()-tic1))
-    return rootgrp, dir_d8_file, flow_acc_file, streams_file, fill_pits_file
-
-def alter_GT(GT, regridFactor):
-    '''
-    This function will alter the resolution of a raster's affine transformation,
-    assuming that the extent and CRS remain unchanged.
-    '''
-    # Georeference geogrid file
-    GeoTransform = list(GT)
-    DX = GT[1]/float(regridFactor)
-    DY = GT[5]/float(regridFactor)
-    GeoTransform[1] = DX
-    GeoTransform[5] = DY
-    GeoTransformStr = ' '.join([str(item) for item in GeoTransform])
-    return GeoTransform, GeoTransformStr, DX, DY
-
-def raster_extent(in_raster):
-    '''
-    Given a raster object, return the bounding extent [xMin, yMin, xMax, yMax]
-    '''
-    xMin, DX, xskew, yMax, yskew, DY = in_raster.GetGeoTransform()
-    Xsize = in_raster.RasterXSize
-    Ysize = in_raster.RasterYSize
-    xMax = xMin + (float(Xsize)*DX)
-    yMin = yMax + (float(Ysize)*DY)
-    del Xsize, Ysize, xskew, yskew, DX, DY
-    return [xMin, yMin, xMax, yMax]
-
-# Coastline harmonization with a landmask
-def coastlineHarmonize(maskFile, ds, outmaskFile, outDEM, minimum, waterVal=0):
-    '''
-    This function is designed to take a coastline mask and harmonize elevation
-    values to it, such that no elevation values that are masked as water cells
-    will have elevation >0, and no land cells will have an elevation < minimum.
-    '''
-    tic1 = time.time()
-
-    # Read mask file for information
-    refDS = gdal.Open(maskFile, gdalconst.GA_ReadOnly)
-    target_ds = gdal.GetDriverByName(RasterDriver).Create(outmaskFile, ds.RasterXSize, ds.RasterYSize, 1, gdal.GDT_Byte)
-    DEM_ds = gdal.GetDriverByName(RasterDriver).Create(outDEM, ds.RasterXSize, ds.RasterYSize, 1, ds.GetRasterBand(1).DataType)
-    CopyDatasetInfo(ds, target_ds)                                              # Copy information from input to output
-    CopyDatasetInfo(ds, DEM_ds)                                                 # Copy information from input to output
-
-    # Resample input to output
-    gdal.ReprojectImage(refDS, target_ds, refDS.GetProjection(), target_ds.GetProjection(), gdalconst.GRA_NearestNeighbour)
-
-    # Build numpy array of the mask grid and elevation grid
-    maskArr = BandReadAsArray(target_ds.GetRasterBand(1))
-    elevArr = BandReadAsArray(ds.GetRasterBand(1))
-
-    # Reassign values
-    ndv = ds.GetRasterBand(1).GetNoDataValue()                                  # Obtain nodata value
-    mask = maskArr==1                                                           # A boolean mask of True wherever LANDMASK=1
-    elevArr[elevArr==ndv] = 0                                                   # Set Nodata cells to 0
-    elevArr[mask] += minimum                                                    # For all land cells, add minimum elevation
-    elevArr[~mask] = waterVal                                                   # ds.GetRasterBand(1).GetNoDataValue()
-
-    # Write to output
-    band = DEM_ds.GetRasterBand(1)
-    BandWriteArray(band, elevArr)
-    band.SetNoDataValue(ndv)
-
-    # Clean up
-    target_ds = refDS = DEM_ds = band = None
-    del maskArr, elevArr, ndv, mask
-    print('    DEM harmonized with landmask in %3.2f seconds.' %(time.time()-tic1))
+    print('Terrain processing step completed without error in {0: 3.2f} seconds.'.format(time.time()-tic1))
+    return rootgrp, dir_d8_file, flow_acc_file, streams_file, fill_pits_file, strahler_file
 
 def CSV_to_SHP(in_csv, DriverName='MEMORY', xVar='LON', yVar='LAT', idVar='FID', toProj=None):
     tic1 = time.time()
@@ -1526,37 +1594,6 @@ def CSV_to_SHP(in_csv, DriverName='MEMORY', xVar='LON', yVar='LAT', idVar='FID',
         del x, y
     layer = srs = drv = None                                      # Saveand close the data source
     return data_source
-
-# Function for using forecast points
-def FeatToRaster(InputVector, inRaster, fieldname, dtype, NoData=None):
-    '''
-    This function will take a point shapefile and rasterize it. The point feature
-    class must have a field in it with values of 1, which is an optional input
-    to the RasterizeLayer function. Currently, this field is named PURPCODE. The
-    result is a raster of NoData and 1 values, which is used as the "Input
-    Depression Mask Grid" in TauDEM's PitRemove tool.
-    '''
-    # Python GDAL_RASTERIZE syntax, adatped from:
-    #    https://gis.stackexchange.com/questions/212795/rasterizing-shapefiles-with-gdal-and-python
-
-    # Open Raster input
-    ds = gdal.Open(inRaster)
-
-    # Get shapefile information
-    in_vector = ogr.Open(InputVector)
-    in_layer = in_vector.GetLayer()
-    driver = gdal.GetDriverByName('Mem')                                        # Write to Memory
-    target_ds = driver.Create('', ds.RasterXSize, ds.RasterYSize, 1, dtype)
-
-    # Copy input raster info to output (SpatialReference, Geotransform, etc)
-    CopyDatasetInfo(ds, target_ds)
-    band = target_ds.GetRasterBand(1)
-    if NoData is not None:
-        band.SetNoDataValue(NoData)
-    band.FlushCache()
-    gdal.RasterizeLayer(target_ds, [1], in_layer, options=["ATTRIBUTE=%s" %fieldname])
-    stats = target_ds.GetRasterBand(1).GetStatistics(0,1)                       # Calculate statistics on new raster
-    return target_ds
 
 def forecast_points(in_csv, rootgrp, bsn_msk, projdir, DX, WKT, fdir, fac, strm):
     # (in_csv, rootgrp, bsn_msk, projdir, template_raster) = (in_csv, rootgrp2, basin_mask, projdir, mosprj)
@@ -1620,7 +1657,17 @@ def forecast_points(in_csv, rootgrp, bsn_msk, projdir, DX, WKT, fdir, fac, strm)
         channelgrid_arr[numpy.logical_and(watershed_arr<0, channelgrid_arr!=NoDataVal)] = -1
         rootgrp.variables['CHANNELGRID'][:] = channelgrid_arr
         print('    Process: CHANNELGRID written to output netCDF.')
-        del channelgrid_arr
+
+        # Eliminate inactive channel cells by setting all areas outside of basin_msk to NoData
+        ds = gdal.Open(strm, 1)                                                 # Read for writing
+        band = ds.GetRasterBand(1)
+        strm_arr = band.ReadAsArray()
+        ndv = band.GetNoDataValue()                                             # Obtain nodata value
+        strm_arr[channelgrid_arr!=0] = ndv                                      # Any inactivate channels will become Nodata in stream array
+        band.WriteArray(strm_arr)                                               # Write the array to the disk
+        stats = band.GetStatistics(0,1)                                         # Calculate statistics
+        ds = band = ndv = stats = None
+        del strm_arr, channelgrid_arr
     else:
         print('    Channelgrid will not be masked to basins.')
     del watershed_arr
@@ -1628,28 +1675,7 @@ def forecast_points(in_csv, rootgrp, bsn_msk, projdir, DX, WKT, fdir, fac, strm)
     print('    Built forecast point outputs in {0: 3.2f} seconds.'.format(time.time()-tic1))
     return rootgrp
 
-def save_raster(OutGTiff, in_raster, rows, cols, gdaltype, NoData=None):
-
-    target_ds = gdal.GetDriverByName(RasterDriver).Create(OutGTiff, cols, rows, 1, gdaltype)
-
-    band = in_raster.GetRasterBand(1)
-    arr_out = band.ReadAsArray()                                                #Read the data into numpy array
-
-    target_ds.SetGeoTransform(in_raster.GetGeoTransform())
-    target_ds.SetProjection(in_raster.GetProjection())
-    target_ds.GetRasterBand(1).WriteArray(arr_out)
-
-    if NoData is not None:
-        target_ds.GetRasterBand(1).SetNoDataValue(NoDataVal)                    # Set noData
-
-    stats = target_ds.GetRasterBand(1).GetStatistics(0,1)                       # Calculate statistics
-    #stats = target_ds.GetRasterBand(1).ComputeStatistics(0)                    # Force recomputation of statistics
-
-    target_ds.FlushCache()                                                      #saves to disk!!
-    target_ds = None
-    return
-
-def build_RouteLink(RoutingNC, order, From_To, NodeElev, Arc_To_From, Arc_From_To, NodesLL, NodesXY, Lengths, Straglers, StrOrder, sr, gageDict=None):
+def build_RouteLink(RoutingNC, order, From_To, NodeElev, NodesLL, NodesXY, Lengths, StrOrder, Slopes, gageDict=None):
     '''
     8/10/2017: This function is designed to build the routiing parameter netCDF file.
                 Ideally, this will be the only place the produces the file, and
@@ -1692,8 +1718,11 @@ def build_RouteLink(RoutingNC, order, From_To, NodeElev, Arc_To_From, Arc_From_T
 
     # Add CF-compliant coordinate system variable
     if pointCF:
-        sr = arcpy.SpatialReference(pointSR)                                    # Build a spatial reference object
-        PE_string = sr.exportToString().replace("'", '"')                       # Replace ' with " so Esri can read the PE String properly when running NetCDFtoRaster
+        sr = osr.SpatialReference()                                             # Build a spatial reference object
+        sr.ImportFromEPSG(pointSR)                                              # Define using EPSG code specified in header
+        projEsri = sr.Clone()                                                   # Copy the SRS
+        projEsri.MorphToESRI()                                                  # Alter the projection to Esri's representation of a coordinate system
+        PE_string = projEsri.ExportToWkt().replace("'", '"')                    # INVESTIGATE - this somehow may provide better compatability with Esri products?
         grid_mapping = crsVar
         rootgrp = add_CRS_var(rootgrp, sr, 0, grid_mapping, 'latitude_longitude', PE_string)
 
@@ -1753,34 +1782,23 @@ def build_RouteLink(RoutingNC, order, From_To, NodeElev, Arc_To_From, Arc_From_T
     rootgrp.history = 'Created %s' %time.ctime()
 
     print('        Starting to fill in routing table NC file.')
-    ids[:] = numpy.array(order)                                                             # Fill in id field information
-    fromnodes = [From_To[arcid][0] for arcid in order]                                      # The FROM node from the streams shapefile (used later as a key))
-    tonodes = [From_To[arcid][1] for arcid in order]                                        # The TO node from the streams shapefile (used later as a key)
-    drops = [int(NodeElev[fromnode] or 0)-int(NodeElev[tonode] or 0) for fromnode, tonode in zip(fromnodes, tonodes)]	# Fix issues related to None in NodeElev
-    #drops = [NodeElev[fromnode]-NodeElev[tonode] for fromnode, tonode in zip(fromnodes, tonodes)]
-    drops = [x if x>0 else 0 for x in drops]                                                # Replace negative values with 0
-
-    # Set variable value arrays
-    fromlist = [Arc_To_From[arcid] for arcid in order]                                      # List containes 'None' values, must convert to numpy.nan
-    tolist = [Arc_From_To[arcid] for arcid in order]                                        # List containes 'None' values, must convert to numpy.nan
+    ids[:] = numpy.array(order)                                                 # Fill in id field information
 
     # Change None values to 0.  Could alternatively use numpy.nan
-    froms[:] = numpy.array([0 if x==None else x for x in fromlist])                    # Note that the From in this case is the ARCID of any of the immediately upstream contributing segments
-    tos[:] = numpy.array([0 if x==None else x for x in tolist])                        # Note that the To in this case is the ARCID of the immediately downstream segment
+    froms[:] = numpy.zeros(len(order))
+    tos[:] = numpy.array([From_To.get(featID, 0) for featID in order])
 
     # Fill in other variables
-    slons[:] = numpy.array([NodesLL[fromnode][0] for fromnode in fromnodes])
-    slats[:] = numpy.array([NodesLL[fromnode][1] for fromnode in fromnodes])
-    geo_x[:] = numpy.array([NodesXY[fromnode][0] for fromnode in fromnodes])
-    geo_y[:] = numpy.array([NodesXY[fromnode][1] for fromnode in fromnodes])
-    selevs[:] = numpy.array([round(NodeElev[fromnode], 3) for fromnode in fromnodes])       # Round to 3 digits
-    Lengthsnc[:] = numpy.array([round(Lengths[arcid], 1) for arcid in order])               # Round to 1 digit
+    slons[:] = numpy.array([NodesLL[featID][0] for featID in order])
+    slats[:] = numpy.array([NodesLL[featID][1] for featID in order])
+    geo_x[:] = numpy.array([NodesXY[featID][0] for featID in order])
+    geo_y[:] = numpy.array([NodesXY[featID][1] for featID in order])
+    selevs[:] = numpy.array([round(NodeElev[featID], 3) for featID in order])   # Round to 3 decimal places
+    Lengthsnc[:] = numpy.array([round(Lengths[featID], 1) for featID in order]) # Round to 1 decimal place
 
     # Modify order and slope arrays
-    order_ = [1 if arcid in Straglers else StrOrder[From_To[arcid][0]] for arcid in order]  # Deal with issue of some segments being assigned higher orders than they should.
-    orders[:] = numpy.array(order_)
-    Sos_ = numpy.round(numpy.array(drops).astype(float)/Lengthsnc[:], 3)        # Must convert list to float to result in floats
-    numpy.place(Sos_, Sos_==0, [0.005])                                         # Set minimum slope to be 0.005
+    orders[:] = numpy.array([StrOrder[featID] for featID in order])
+    Sos_ = numpy.round(numpy.array([Slopes[featID] for featID in order]), 3)
     Sos[:] = Sos_[:]
 
     # Set default arrays
@@ -1806,17 +1824,9 @@ def build_RouteLink(RoutingNC, order, From_To, NodeElev, Arc_To_From, Arc_From_T
     print('    Routing table created without error.')
     return
 
-def Routing_Table(projdir, sr2, grid_obj, channelgrid, fdir, Elev, Strahler, gages=None):
+def Routing_Table(projdir, rootgrp, grid_obj, fdir, strm, Elev, Strahler, gages=False):
     """If "Create reach-based routing files?" is selected, this function will create
     the Route_Link.nc table and Streams.shp shapefiles in the output directory."""
-
-    ##        # UNUSED
-    ##        stream_id = "stream_id.tif"
-    ##        stream_length = "stream_length.tif"
-    ##        streams_vector = "streams.shp"
-    ##        wbt.stream_link_identifier(dir_d8, streams, stream_id, esri_pntr=esri_pntr, zero_background=zero_background)
-    ##        wbt.stream_link_length(dir_d8, stream_id, stream_length, esri_pntr=esri_pntr, zero_background=zero_background)
-    ##        wbt.raster_streams_to_vector(stream_id, dir_d8, streams_vector, esri_pntr=esri_pntr)
 
     # Stackless topological sort algorithm, adapted from: http://stackoverflow.com/questions/15038876/topological-sort-python
     def sort_topologically_stackless(graph):
@@ -1861,200 +1871,201 @@ def Routing_Table(projdir, sr2, grid_obj, channelgrid, fdir, Elev, Strahler, gag
             walk_depth_first(name)
 
         list1 = list(takewhile(lambda x: x is not None, (names_by_level.get(i, None) for i in count())))
-        list2 = [item for sublist in list1 for item in sublist][::-1]               # Added by KMS 9/2/2015 to reverse sort the list
-        list3 = [x for x in list2 if x is not None]                                 # Remove None values from list
+        list2 = [item for sublist in list1 for item in sublist][::-1]           # Added by KMS 9/2/2015 to reverse sort the list
+        list3 = [x for x in list2 if x is not None]                             # Remove None values from list
         return list3
 
     print('    Routing table will be created...')
+    tic1 = time.time()
 
-    # Get grid information from grid object
-    proj = grid_obj.proj
-    (xMin, yMin, xMax, yMax) = grid_obj.grid_extent()
+    # Setup whitebox tool object and options
+    wbt = WhiteboxTools()
+    wbt.verbose = False
+    wbt.work_dir = projdir
+    esri_pntr = True
+    zero_background = True
+    id_field = 'STRM_VAL'                                                       # Whitebox-assigned stream ID field
 
-    # Set output coordinate system environment
-    sr1 = osr.SpatialReference()                                                # Build empty spatial reference object
-    sr1.ImportFromWkt(wkt_text)                                                  # Load default sphere lat/lon CRS from global attribute wkt_text
-
-    # Output files
+    # Setup temporary and other outputs
+    stream_id = "stream_id.tif"
+    streams_vector = "streams.shp"
+    stream_id_file = os.path.join(projdir, stream_id)
+    streams_vector_file = os.path.join(projdir, streams_vector)
     outStreams = os.path.join(projdir, StreamSHP)
     RoutingNC = os.path.join(projdir, RT_nc)
-    OutFC = os.path.join("in_memory", "Nodes")
-    OutFC2 = os.path.join("in_memory", "NodeElev")
-    OutFC3 = os.path.join("in_memory", "NodeOrder")
-    outRaster = os.path.join("in_memory", "LINKID")
 
-    # Build Stream Features shapefile
-    StreamToFeature(channelgrid, fdir, outStreams, "NO_SIMPLIFY")
+    # Run Whitebox functions for creating link IDs and vectors
+    wbt.stream_link_identifier(fdir, strm, stream_id, esri_pntr=esri_pntr, zero_background=zero_background)
+    wbt.raster_streams_to_vector(stream_id, fdir, streams_vector, esri_pntr=esri_pntr)
     print('        Stream to features step complete.')
 
-    # Create a raster based on the feature IDs that were created in StreamToFeature
-    arcpy.FeatureToRaster_conversion(outStreams, 'ARCID', outRaster, channelgrid)                   # Must do this to get "ARCID" field into the raster
-    maxValue = arcpy.SearchCursor(outStreams, "", "", "", 'ARCID' + " D").next().getValue('ARCID')  # Gather highest "ARCID" value from field of segment IDs
-    maxRasterValue = outRaster.GetRasterBand(1).GetMaximum()                    # Gather maximum "ARCID" value from raster
-    if int(maxRasterValue[0]) > maxValue:
-        print('        Setting linkid values of {0} to Null.'.format(maxRasterValue[0]))
-        whereClause = "VALUE = {0}".format(int(maxRasterValue[0]))
-        outRaster = SetNull(outRaster, outRaster, whereClause)                  # This should eliminate the discrepency between the numbers of features in outStreams and outRaster
-    outRaster = Con(IsNull(outRaster) == 1, NoDataVal, outRaster)               # Set Null values to -9999 in LINKID raster
+    # Read the link IDs as an array from the output file
+    strm_link_arr, ndv = return_raster_array(stream_id_file)
+    rootgrp.variables['LINKID'][:] = strm_link_arr
+    remove_file(stream_id_file)
 
-    # Add gage points from input forecast points file
-    frxst_linkID = {}                                                           # Create blank dictionary so that it exists and can be deleted later
-    if gages is not None:
+    gage_linkID = {}
+    if gages:
         print('        Adding forecast points:LINKID association.')
+        gage_arr = rootgrp.variables['frxst_pts'][:]
+        unique_gages = numpy.unique(gage_arr[gage_arr!=NoDataVal])
+        gage_linkID = {gage:strm_link_arr[gage_arr==gage][0] for gage in unique_gages}    # Create blank dictionary so that it exists and can be deleted later
+        print('        Found {0} forecast point:LINKID associations.'.format(len(gage_linkID)))
+        del unique_gages, gage_arr
+    linkID_gage = {val:key for key, val in gage_linkID.items()}                 # Reverse the dictionary
+    del strm_link_arr, ndv, gage_linkID
 
-        # Input forecast points raster must be forecast point IDs and NoData only
-        out_frxst_linkIDs = os.path.join('in_memory', 'frxst_linkIDs')
+    # Setup coordinate transform for calculating lat/lon from x/y
+    wgs84_proj = osr.SpatialReference()
+    wgs84_proj.ImportFromProj4(wgs84_proj4)
+    coordTrans = osr.CoordinateTransformation(grid_obj.proj, wgs84_proj)        # Transformation from grid projection to WGS84
 
-        # Sample the LINKID value for each forecast point. Result is a table
-        Sample(outRaster, gages, out_frxst_linkIDs, "NEAREST")
-        frxst_linkID = {int(row[-1]):int(row[1]) for row in arcpy.da.SearchCursor(out_frxst_linkIDs, '*')}  # Dictionary of LINKID:forecast point for all forecast points
+    # Setup coordinate transform for calculating lat/lon from x/y
+    wgs84_proj = osr.SpatialReference()
+    wgs84_proj.ImportFromProj4(wgs84_proj4)
+    coordTrans = osr.CoordinateTransformation(grid_obj.proj, wgs84_proj)        # Transformation from grid projection to WGS84
 
-        # Clean up
-        arcpy.Delete_management(gages)
-        arcpy.Delete_management(out_frxst_linkIDs)
-        print('        Found {0} forecast point:LINKID associations.'.format(len(frxst_linkID)))
-        del gages, out_frxst_linkIDs
+    # Initiate dictionaries for storing topology and attribute information
+    Lengths = {}                        # Gather the stream feature length
+    StrOrder = {}                       # Store stream order for each node
+    NodeElev = {}                       # Elevation of the start node
+    slope_dic = {}                      # Slope (unitless drop/length)
+    NodeLL = {}                         # Dictionary to store geocentric (longitude, latitude) coordinates for every start node
+    NodeXY = {}                         # Dictionary to store projectedc (x, y) coordinates for every start node
 
-    # Create new Feature Class and begin populating it
-    arcpy.CreateFeatureclass_management("in_memory", "Nodes", "POINT")
-    arcpy.AddField_management(OutFC, "NODE", "LONG")
+    # Open shapefile
+    driver = ogr.GetDriverByName("ESRI Shapefile")
+    data_source = driver.Open(streams_vector_file, 1)
+    lyr = data_source.GetLayer()
+    topology_dic = {}
+    coords_dic = {}
+    for feature in lyr:
+        # Open each feature and get geometry
+        flowline_id = int(feature.GetField(id_field))
+        geom = feature.GetGeometryRef()
+        flowline_length = geom.Length()
 
-    # Initiate dictionaries for storing topology information
-    From_To = {}                                                                # From_Node/To_Node information
-    Nodes = {}                                                                  # Node firstpoint/lastpoint XY information
-    NodesLL = {}                                                                # Stores the projected node Lat/Lon information in EMEP Sphere GCS
-    Lengths = {}                                                                # Gather the stream feature length
-    StrOrder = {}                                                               # Store stream order for each node
+        # Get coordinates of first and last point, flow line ID, and flow line length
+        first_point = geom.GetPoint(0)
+        last_point = geom.GetPoint(geom.GetPointCount() - 1)
+        first_point_coords = (first_point[0], first_point[1])
+        last_point_coords = (last_point[0], last_point[1])
 
-    # Enter for loop for each feature/row to gather length and endpoints of stream segments                                                       # Create an array and point object needed to create features
-    point = arcpy.Point()
-    with arcpy.da.SearchCursor(outStreams, ['SHAPE@', 'ARCID', 'FROM_NODE', 'TO_NODE']) as rows:                       # Start SearchCursor to look through all linesegments
-        for row in rows:
-            ID = row[1]                                                         # Get Basin ARCID
-            From_To[ID] = [row[2], row[3]]                                      # Store From/To node for each segment
-            feat = row[0]                                                       # Create the geometry object 'feat'
+        # Create topology dictionary of 'bottom_point geometry: stream flowline ID'
+        try:
+            topology_dic[last_point_coords] += [flowline_id]
+        except KeyError:
+            topology_dic[last_point_coords] = [flowline_id]
 
-            if feat.isMultipart == False:                                       # Make sure that each part is a single part feature
-                firstpoint = feat.firstPoint                                    # First point feature geometry
-                lastpoint = feat.lastPoint                                      # Last point feature geometry
-                Lengths[ID] = feat.length                                       # Store length of the stream segment
+        # Create coordinate dictionary of flowline ID: first point, last point, length
+        coords_dic[flowline_id] = first_point_coords, last_point_coords, flowline_length
+        feature = geom = first_point = last_point = None
+    lyr.ResetReading()
 
-                # Gather the X and Y of the top and bottom ends
-                for i in firstpoint,lastpoint:                                  # Now put this geometry into new feature class
-                    point.X = i.X
-                    point.Y = i.Y
-                    pointGeometry = arcpy.PointGeometry(point, sr2)
-                    projpoint = pointGeometry.projectAs(sr1)                    # Convert to latitude/longitude on the sphere
-                    projpoint1 = projpoint.firstPoint
-                    if i == firstpoint:                                         # Top Point
-                        if row[2] in Nodes:
-                            continue                                            # Skip entry if record already exists in dictionary
-                        Nodes[row[2]] = (i.X, i.Y)
-                        NodesLL[row[2]] = (projpoint1.X, projpoint1.Y)
-                    elif i == lastpoint:                                        # Bottom Point
-                        if row[3] in Nodes:
-                            continue                                            # Skip entry if record already exists in dictionary
-                        Nodes[row[3]] = (i.X, i.Y)
-                        NodesLL[row[3]] = (projpoint1.X, projpoint1.Y)
-            else:
-                print('This is a multipart line feature and cannot be handled.')
-    #rows.reset()                                                                # Not sure why this is necessary
-    del row, rows, point, ID, feat, firstpoint, lastpoint, pointGeometry, projpoint, projpoint1, i, sr2
-    print('        Done reading streams layer.')
+    # Create to/from dictionary matching bottom point to top point, creating dic of 'from ID: to ID'
+    to_from_dic = {}
+    for flowline_id, (first_point_coords, last_point_coords, flowline_length) in coords_dic.items():
+        if first_point_coords in topology_dic:
+            #for feature_id in topology_dic[first_point_coords]:
+            for feature_id in topology_dic.pop(first_point_coords):
+                to_from_dic[feature_id] = flowline_id
 
-    # Make a point feature class out of the nodes
-    IC = arcpy.da.InsertCursor(OutFC, ['SHAPE@', 'NODE'])
-    NodesXY = Nodes                                                             # Copy the Nodes dictionary before it gets modified
-    for node in list(Nodes.keys()):                                                   # Now we have to adjust the points that fall outside of the raster edge
-
-        # Adjust X
-        if Nodes[node][0] <= xMin:
-            Nodes[node] = ((Nodes[node][0] + (grid_obj.ncols/2)), Nodes[node][1])
-        elif Nodes[node][0] >= xMax:
-            Nodes[node] = ((Nodes[node][0] - (grid_obj.ncols/2)), Nodes[node][1])
-
-        # Adjust Y
-        if Nodes[node][1] <= yMin:
-            Nodes[node] = (Nodes[node][0], (Nodes[node][1] + (grid_obj.nrows/2)))
-        elif Nodes[node][1] >= yMax:
-            Nodes[node] = (Nodes[node][0], (Nodes[node][1] - (grid_obj.nrows/2)))
-
-        IC.insertRow([Nodes[node], node])                                       # Insert point and ID information into the point feature class
-
-    del IC, node, Nodes, xMin, yMin, xMax, yMax
-    print('        Done building Nodes layer with adjustments.')
-
-    # Get the elevation values for the nodes feature class
-    ExtractValuesToPoints(OutFC, Elev, OutFC2, "NONE", "VALUE_ONLY")
-    print('        Done extracting elevations to points.')
-    NodeElev = {row[0]: row[1] for row in arcpy.da.SearchCursor(OutFC2, ['NODE', 'RASTERVALU'])}
-    print('        Done reading node elevations.')
-    arcpy.Delete_management(OutFC2)                                             # Clean up
-
-    # Incorporate Strahler Order
-    ExtractValuesToPoints(OutFC, Strahler, OutFC3, "NONE", "VALUE_ONLY")
-    with arcpy.da.SearchCursor(OutFC3, ['NODE', 'RASTERVALU']) as rows:
-        for row in rows:
-            if row[1] <= 0:                                                     # Reclass -9999 values to 1
-                order = 1
-            else:
-                order = row[1]
-            StrOrder[row[0]] = order
-    print('        Done reading Strahler stream orders.')
-    arcpy.Delete_management(OutFC)                                              # Clean up
-    arcpy.Delete_management(OutFC3)                                             # Clean up
-
-    # Add stream order into the streams shapefile
-    arcpy.AddField_management(outStreams, "Order_", "SHORT")                    # Add field for "Order_"
-    arcpy.AddField_management(outStreams, "index", "LONG")                      # Add field for "index" that gives the topologically sorted order of streams in the out nc file
-    arcpy.AddField_management(outStreams, "GageID", "TEXT", "#", "#", 15, "#", "NULLABLE")  # Add field for gages
-    with arcpy.da.UpdateCursor(outStreams, ['ARCID', 'Order_', 'GageID']) as rows:# Start UpdateCursor to add the stream order information
-        for row in rows:
-            row[1] = StrOrder[From_To[row[0]][0]]                               # This gets the stream order of the upstream node
-            if row[0] in frxst_linkID:
-                row[2] = frxst_linkID[row[0]]
-            rows.updateRow(row)
-
-    # Deconstruct from Node space to segment space
-    Arc_From = {x:From_To[x][0] for x in From_To}                                       # Build ARCID-keyed topology of The ARCID:FromNode
-    From_Arc = {From_To[x][0]:x for x in From_To}                                       # Build Node-keyed topology of The FromNode:ARCID
-    From_To2 = {From_To[x][0]:From_To[x][1] for x in From_To}                           # Build Node-keyed topology of The FromNode:ToNode
-    Arc_From_To = {item:From_Arc.get(From_To2[Arc_From[item]]) for item in Arc_From}    # Build ARCID-keyed topology of the ARCID:ToARCID   ".get()" allows None to be placed in dictionary
-    To_From = {From_To[x][1]:From_To[x][0] for x in From_To}                            # Build Node-keyed topology of The ToNode:FromNode
-    Arc_To_From = {item:From_Arc.get(To_From.get(Arc_From[item])) for item in Arc_From} # Build ARCID-keyed topology of the ARCID:FromARCID. ".get()" allows None to be placed in dictionary
+    # Add in flowlines with nothing downstream
+    for feautre_id in coords_dic:
+        if feature_id not in to_from_dic:
+            to_from_dic[feature_id] = 0
+    del topology_dic
 
     # Get the order of segments according to a simple topological sort
-    whereclause = "%s > 1" %arcpy.AddFieldDelimiters(outStreams, "Order_")
-    Straglers = [row[0] for row in arcpy.da.SearchCursor(outStreams, 'ARCID', whereclause) if Arc_To_From.get(row[0]) is None]    # These are not picked up by the other method
-    tic2 = time.time()
-    order = sort_topologically_stackless({item:[From_Arc.get(From_To2[Arc_From[item]])] for item in Arc_From})    # 'order' variable is a list of LINK IDs that have been reordered according to a simple topological sort
-    print('        Time elapsed for sorting: {0: 3.2f} seconds'.format(time.time()-tic2))
+    order = sort_topologically_stackless({key:[val] for key,val in to_from_dic.items()})
 
-    # Fix Streams shapefile from "FROM_NODE" and "TO_NODE" to "FROM_ARCID" and "TO_ARCID"
-    arcpy.AddField_management(outStreams, "From_ArcID", "LONG", "#", "#", "#", "#", "NULLABLE")     # Add field for "From_ArcID"
-    arcpy.AddField_management(outStreams, "To_ArcID", "LONG", "#", "#", "#", "#", "NULLABLE")       # Add field for "To_ArcID"
-    with arcpy.da.UpdateCursor(outStreams, ("ARCID", "From_ArcID", "To_ArcID", "Order_", "index")) as cursor:
-        for row in cursor:
-            arcid = row[0]
-            row[4] = order.index(arcid)                                         # Assign field 'index' with the topologically sorted order (adds a bit of time to the process)
-            if arcid in Straglers:
-                row[3] = 1                                                      # Deal with issue of some segments being assigned higher orders than they should.
-            if Arc_To_From[arcid] is not None:
-                row[1] = Arc_To_From.get(arcid)
-            if Arc_From_To[arcid] is not None:
-                row[2] = Arc_From_To.get(arcid)
-            cursor.updateRow(row)
-    arcpy.DeleteField_management(outStreams, ['FROM_NODE', 'TO_NODE'])          # Delete node-based fields
+    # Open elevation raster
+    dem_array = gdal.Open(Elev, 0)
+    dem_rb = dem_array.GetRasterBand(1)
+
+    # Open strahler stream order raster
+    strahler_array = gdal.Open(Strahler, 0)
+    strahler_rb = strahler_array.GetRasterBand(1)
+
+    # Iterate over coordinate dictionary​
+    tic2 = time.time()
+    for idval, (top_xy, bot_xy, length) in coords_dic.items():
+
+        # Get top/first coordinates values from DEM
+        row, col = grid_obj.xy_to_grid_ij(top_xy[0], top_xy[1])
+        top_elevation = float(dem_rb.ReadAsArray(col, row, 1, 1))
+        strahler_value = int(strahler_rb.ReadAsArray(col, row, 1, 1))
+
+        # Get bottom/last coordinates values from DEM
+        row, col = grid_obj.xy_to_grid_ij(bot_xy[0], bot_xy[1])
+        bottom_elevation = dem_rb.ReadAsArray(col, row, 1, 1)
+
+        # Fix negative slopes
+        drop = top_elevation - bottom_elevation
+        slope = drop/length
+        if slope < minSo:
+            slope = minSo
+
+        # Populate all dictionaries
+        slope_dic[idval] = float(slope)
+        StrOrder[idval] = strahler_value
+        NodeElev[idval] = top_elevation
+        Lengths[idval] = length
+        NodeXY[idval] = (top_xy[0], top_xy[1])
+
+        point = ogr.Geometry(ogr.wkbPoint)
+        point.AddPoint(top_xy[0], top_xy[1])
+        point.Transform(coordTrans)                                      # Transform the geometry
+        NodeLL[idval] = (point.GetX(), point.GetY())
+        point = None
+    del coords_dic
+    print('  All dictionaries have been created in {0: 3.2f} seconds.'.format(time.time()-tic2))
+
+    # Create new field in shapefile
+    field_defn = ogr.FieldDefn("to", ogr.OFTInteger64)
+    lyr.CreateField(field_defn)
+
+    field_defn = ogr.FieldDefn("Order_", ogr.OFTInteger)
+    lyr.CreateField(field_defn)
+
+    field_defn = ogr.FieldDefn("GageID", ogr.OFTString)
+    field_defn.SetWidth(15)
+    lyr.CreateField(field_defn)
+
+    field_defn = ogr.FieldDefn("LakeID", ogr.OFTInteger64)
+    lyr.CreateField(field_defn)
+
+    field_defn = ogr.FieldDefn("length", ogr.OFTReal)
+    lyr.CreateField(field_defn)
+
+    field_defn = ogr.FieldDefn("Slope", ogr.OFTReal)
+    lyr.CreateField(field_defn)
+
+    field_defn = ogr.FieldDefn("TopElev", ogr.OFTReal)
+    lyr.CreateField(field_defn)
+
+    # Iterate over shapefile to add new values to the newly created field
+    for feature in lyr:
+        link_id = int(feature.GetField(id_field))
+        feature.SetField("to", to_from_dic.get(link_id, 0))
+        feature.SetField("Order_", StrOrder[link_id])
+        feature.SetField("GageID", str(linkID_gage.get(link_id, None)))
+        feature.SetField("LakeID", NoDataVal)
+        feature.SetField("length", Lengths[link_id])
+        feature.SetField("Slope", slope_dic[link_id])
+        feature.SetField("TopElev", NodeElev[link_id])
+        lyr.SetFeature(feature)
+    data_source = feature = lyr = None
+    print('  Fields have been added to the shapefile.')
+
+    # We need to define the projection for the streams file: this is not done automatically by Whitebox.
+    define_projection(streams_vector_file, grid_obj.proj)
 
     # Call function to build the netCDF parameter table
-    loglines2 = build_RouteLink(arcpy, RoutingNC, order, From_To, NodeElev, Arc_To_From, Arc_From_To, NodesLL, NodesXY, Lengths, Straglers, StrOrder, sr1, gageDict=frxst_linkID)
-    del frxst_linkID, sr1
-
-    # Return
-    outArr = BandReadAsArray(outRaster.GetRasterBand(1))               # Create array from raster
-    outRaster = None
-    del outRaster
-    return outArr
+    build_RouteLink(RoutingNC, order, to_from_dic, NodeElev, NodeLL, NodeXY, Lengths, StrOrder, slope_dic, gageDict=linkID_gage)
+    del linkID_gage, order, to_from_dic, NodeElev, Lengths, StrOrder, NodeLL, NodeXY, slope_dic
+    print('Reach-based routing inputs generated in {0:3.2f} seconds.'.format(time.time()-tic1))
+    return rootgrp
 
 def build_LAKEPARM(LakeNC, min_elevs, areas, max_elevs, OrificEs, cen_lats, cen_lons, WeirE_vals):
     '''
@@ -2161,202 +2172,6 @@ def build_LAKEPARM(LakeNC, min_elevs, areas, max_elevs, OrificEs, cen_lats, cen_
     print('        Done writing {0} table to disk.'.format(LK_nc))
     return
 
-def array_to_points(in_arr, dtype, GT, proj, NoDataVal=-9999):
-    '''
-    Build a point feature class for every grid cell that contains a unique value
-    in the input array.
-
-    This function is intended to be used to derive pour points from channel pixels
-    such as lake outlets.
-
-    Assumes input is a 2D numpy array. Seems to only work with integer field type
-    currently.
-    '''
-
-    tic1 = time.time()
-    valField = 'VALUE'
-    xMin, DX, xskew, yMax, yskew, DY = GT
-
-    # Create in-memory output layer to store projected and/or clipped polygons
-    drv = ogr.GetDriverByName('MEMORY')                                         # Other options: 'ESRI Shapefile'
-    data_source = drv.CreateDataSource('')                                      # Create the data source. If in-memory, use '' or some other string as the data source name
-    outLayer = data_source.CreateLayer('', proj, ogr.wkbPoint)               # Create the layer name. Use '' or some other string as the layer name
-    outLayer.CreateField(ogr.FieldDefn(valField, dtype))                         # Add a single field to the new layer
-    outlayerDef = outLayer.GetLayerDefn()
-
-    # col, row to x, y   From https://www.perrygeo.com/python-affine-transforms.html
-    uniques = numpy.unique(in_arr[in_arr!=NoDataVal])                           # Determine unique values
-    for idval in uniques:
-        locs = numpy.where(in_arr==idval)
-        for j, i in zip(locs[0], locs[1]):
-            x = (i * DX) + xMin + float(DX/2)
-            y = (j * DY) + yMax + float(DY/2)
-
-            # Build output feature
-            outFeature = ogr.Feature(outlayerDef)
-            outFeature.SetField(valField, int(idval))                                    # Set pixel value attribute
-            wkt = "POINT({0} {1})".format(x, y)                                       # create the WKT for the feature using Python string formatting
-            point = ogr.CreateGeometryFromWkt(wkt)                                  # Create the point from the Well Known Txt
-            outFeature.SetGeometry(point)                                           # Set the feature geometry using the point
-            outLayer.CreateFeature(outFeature)                                            # Create the feature in the layer (shapefile)
-            outFeature.Destroy()
-            outFeature = point = None                                               # Dereference the feature
-    outLayer = None
-    return data_source
-
-def project_Polygons(InputVector, outProj, clipGeom=None):
-    '''
-    This function is intended to project a polygon geometry to a new coordinate
-    system. Optionally, the geometries can be clipped to an extent rectangle. If
-    this option is chosen, the area will be re-calculated for each polygon. The
-    assumption is that the linear units are meters.
-    '''
-    # (InputVector, outProj, clipGeom) = (in_lakes, proj, geom)
-    # import ogr
-    tic1 = time.time()
-
-    # Get input vector information
-    in_vect = ogr.Open(InputVector)                                             # Read the input vector file
-    in_layer = in_vect.GetLayer()                                               # Get the 'layer' object from the data source
-    in_proj = in_layer.GetSpatialRef()                                          # Obtain the coordinate reference object.
-    inlayerDef = in_layer.GetLayerDefn()                                        # Obtain the layer definition for this layer
-
-    # Check if a coordinate transformation (projection) must be performed
-    if not outProj.IsSame(in_proj):
-        print('    Input shapefile projection does not match requested output. Transforming.')
-        coordTrans = osr.CoordinateTransformation(in_proj, outProj)
-        trans = True
-
-    # Create in-memory output layer to store projected and/or clipped polygons
-    drv = ogr.GetDriverByName('MEMORY')                                         # Other options: 'ESRI Shapefile'
-    data_source = drv.CreateDataSource('')                                      # Create the data source. If in-memory, use '' or some other string as the data source name
-
-    # Add the fields we're interested in
-    outLayer = data_source.CreateLayer('', outProj, ogr.wkbPolygon)             # Create the layer name. Use '' or some other string as the layer name
-
-    # Build output vector file identical to input with regard to fields
-    outLayer.CreateField(ogr.FieldDefn('AREASQKM', ogr.OFTReal))                # Add a single field to the new layer
-
-    # Copy fields from input vector layer to output
-    fieldNames = []                                                             # Build empty list of field names
-    for i in range(inlayerDef.GetFieldCount()):
-        fieldDef = inlayerDef.GetFieldDefn(i)                                   # Get the field definition for this field
-        fieldName =  fieldDef.GetName()                                         # Get the field name for this field
-        outLayer.CreateField(ogr.FieldDefn(fieldName, fieldDef.GetType()))      # Create a field in the output that matches the field in the input layer
-        fieldNames.append(fieldName)                                            # Add field name to list of field names
-        #print('    Added field {0}, dtype = {1}'.format(fieldName, fieldDef.GetType()))
-    outlayerDef = outLayer.GetLayerDefn()
-
-    # Read all features in layer
-    inFeatCount = in_layer.GetFeatureCount()                                    # Get number of input features
-    for feature in in_layer:
-        geometry = feature.GetGeometryRef()                                     # Get the geometry object from this feature
-        if trans:
-            geometry.Transform(coordTrans)                                      # Transform the geometry
-        if clipGeom:
-            if clipGeom.Intersects(geometry):
-                geometry = geometry.Intersection(clipGeom)                      # Clip the geometry if requested
-            else:
-                continue                                                        # Go to the next feature (do not copy)
-
-        # Create output Feature
-        outFeature = ogr.Feature(outlayerDef)                                   # Create new feature
-        outFeature.SetGeometry(geometry)                                        # Set output Shapefile's feature geometry
-
-        # Fill in fields. All fields in input will be transferred to output
-        outFeature.SetField('AREASQKM', float(geometry.Area()/1000000.0))       # Add an area field to re-calculate area
-        for fieldname in fieldNames:
-            outFeature.SetField(fieldname, feature.GetField(fieldname))
-        outLayer.CreateFeature(outFeature)                                      # Add new feature to output Layer
-        feature.Destroy()                                                       # Destroy this feature
-        feature = outFeature = geometry = None                                  # Clear memory
-    outLayer.ResetReading()
-    outFeatCount = outLayer.GetFeatureCount()                                   # Get number of features in output layer
-    #outLayer = None                                                             # Clear memory
-
-    print('Number of output polygons: {0} of {1}'.format(outFeatCount, inFeatCount))
-    print('Completed reprojection and-or clipping in {0:3.2f} seconds.'.format(time.time()-tic1))
-    in_vect = inlayerDef = in_layer = None
-    return data_source, outLayer, fieldNames
-
-def raster_to_polygon(in_raster, in_proj, geom_typ=ogr.wkbPolygon):
-    '''
-    Convert a raster object to a polygon layer.
-    '''
-    tic1 = time.time()
-
-    # Create temporary polygon vector layer
-    ds = ogr.GetDriverByName('MEMORY').CreateDataSource('')
-    Layer = ds.CreateLayer('', geom_type=geom_typ, srs=in_proj)   # Use projection from input raster
-    Layer.CreateField(ogr.FieldDefn('RASTERVALU', ogr.OFTReal))
-
-    # Get raster band information
-    band = in_raster.GetRasterBand(1)                                           # Get raster band 1
-    stats = band.ComputeStatistics(0)                                       # Force recomputation of statistics
-
-    # Polygonize the raster and write features to in-memory vector layer
-    result = gdal.Polygonize(band, band, Layer, 0, ["8CONNECTED=8"], callback=None)     # With 8-connectedness
-    if result != 0:
-        print('Polygonize raster failed')
-    else:
-        print('  Created polygon from input raster in {0: 3.2f} seconds'.format(time.time()-tic1))
-
-    #feature = Layer.GetNextFeature()
-    return ds, Layer
-
-def dissolve_polygon_to_multipolygon(inDS, inLayer, fieldname, quiet=True):
-    '''
-    This function will dissolve the polygons in an input polygon feature layer
-    and provide an output in-memory multipolygon layer with the dissolved geometries.
-    '''
-    tic1 = time.time()
-    in_proj = inLayer.GetSpatialRef()
-
-    # Create temporary polygon vector layer
-    ds = ogr.GetDriverByName('MEMORY').CreateDataSource('')
-    outLayer = ds.CreateLayer('', geom_type=ogr.wkbMultiPolygon, srs=in_proj)   # Use projection from input raster
-    inlayerDef = inLayer.GetLayerDefn()                                        # Obtain the layer definition for this layer
-
-    # Copy fields from input vector layer to output
-    fieldNames = []                                                             # Build empty list of field names
-    for i in range(inlayerDef.GetFieldCount()):
-        fieldDef = inlayerDef.GetFieldDefn(i)                                   # Get the field definition for this field
-        fieldName =  fieldDef.GetName()                                         # Get the field name for this field
-        outLayer.CreateField(ogr.FieldDefn(fieldName, fieldDef.GetType()))      # Create a field in the output that matches the field in the input layer
-        fieldNames.append(fieldName)                                            # Add field name to list of field names
-    outlayerDef = outLayer.GetLayerDefn()
-    inlayerDef = None
-
-    # Set up list of unique lake IDs over which to dissolve singlepart to multiapart polygons
-    valuelist = set([feature.GetField(fieldname) for feature in inLayer])       # Get list of unique IDs
-    inLayer.ResetReading()                                                      # Reset layer
-    for idval in valuelist:
-        inLayer.SetAttributeFilter('"%s" = %s' %(fieldname, idval))         # Select the ID from the layer
-        polygeom = ogr.Geometry(ogr.wkbMultiPolygon)
-        for feature in inLayer:
-            polygeom.AddGeometry(feature.GetGeometryRef())
-        #polygeom = polygeom.UnionCascaded()
-        if not quiet:
-            print('  [{0}] Number of features in the original polygon: {1},  multipolygon: {2}'.format(int(idval), inLayer.GetFeatureCount(), polygeom.GetGeometryCount()))
-
-        # Create output Feature
-        outFeature = ogr.Feature(outlayerDef)                                   # Create new feature
-        outFeature.SetGeometry(polygeom)                                        # Set output Shapefile's feature geometry
-
-        # Fill in fields. All fields in input will be transferred to output
-        for fieldname in fieldNames:
-            if fieldname == 'AREASQKM':
-                outFeature.SetField(fieldname, float(polygeom.Area()/1000000.0))       # Add an area field to re-calculate area
-            else:
-                outFeature.SetField(fieldname, feature.GetField(fieldname))
-        outLayer.CreateFeature(outFeature)                                      # Add new feature to output Layer
-        feature = outFeature = polygeom = None                                  # Clear memory
-        inLayer.SetAttributeFilter(None)
-    inlayerDef = outlayerDef = outLayer = None
-    del idval, fieldNames, valuelist, in_proj
-    print('    Done dissolving input layer in {0:3.2f} seconds.'.format(time.time()-tic1))
-    return ds
-
 def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, Gridded=True):
     """
     This function is intended to add reservoirs into the model grid stack, such
@@ -2388,16 +2203,18 @@ def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, 
 
     # Outputs
     LakeNC = os.path.join(projdir, LK_nc)
-    outshp = os.path.join(projdir, 'in_lakes_clip.shp')                         # Clipped input lakes shapefile
-    LakeRas = os.path.join(projdir, 'LakeGrid.tif')
+    outshp = os.path.join(projdir, LakesSHP)                                    # Clipped and projected input lakes shapefile
     frxst_FC = os.path.join(projdir, 'Lake_outlets.shp')
-    out_lake_raster_shp = os.path.join(projdir, "out_lake_raster.shp")
     snapPour = 'Lake_snapped_pour_points.shp'                                   # Pour points snapped downstream of lake outlets
 
-    # Get domain extent for cliping geometry
-    geom = grid_obj.boundarySHP('', 'MEMORY')
+    # Setup coordinate transform for calculating lat/lon from x/y
+    wgs84_proj = osr.SpatialReference()
+    wgs84_proj.ImportFromProj4(wgs84_proj4)
+    coordTrans = osr.CoordinateTransformation(grid_obj.proj, wgs84_proj)        # Transformation from grid projection to WGS84
+    coordTrans_inv = osr.CoordinateTransformation(wgs84_proj, grid_obj.proj)    # Transformation from WGS84 to grid projection
 
     # Use extent of the template raster to add a feature layer of lake polygons
+    geom = grid_obj.boundarySHP('', 'MEMORY')                                   # Get domain extent for cliping geometry
     lake_ds, lake_layer, fieldNames = project_Polygons(in_lakes, grid_obj.proj, clipGeom=geom)
     geom = None
 
@@ -2416,12 +2233,21 @@ def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, 
         print('    Using provided lake ID field: {0}'.format(lakeIDfield))
         lakeID = lakeIDfield                                                    # Use existing field specified by 'lakeIDfield' parameter
 
-    # Gather areas from AREASQKM field
+    # Generate dictionary of areas, and centroid lat/lon for populatingLAKEPARM.nc
+    print('    Starting to gather lake centroid and area information.')
+    cen_lats = {}
+    cen_lons = {}
     areas = {}
     for feature in lake_layer:
-        areas[feature.GetField(lakeID)] = feature.GetField('AREASQKM')
-        feature = None
+        idval = feature.GetField(lakeID)
+        areas[idval] = feature.GetField('AREASQKM')
+        centroid = feature.GetGeometryRef().Centroid()
+        centroid.Transform(coordTrans)                                      # Transform the geometry
+        cen_lats[idval] = centroid.GetY()
+        cen_lons[idval] = centroid.GetX()
+        feature = centroid = None
     lake_layer.ResetReading()
+    print('    Done gathering lake centroid information.')
     lakeIDList = list(areas.keys())
 
     # Save to disk in order to use in the FeatToRaster function.
@@ -2431,8 +2257,12 @@ def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, 
     # Convert lake geometries to raster geometries on the model grid
     LakeRaster = FeatToRaster(outshp, fac, lakeID, gdal.GDT_Int32, NoData=NoDataVal)
     Lake_arr = BandReadAsArray(LakeRaster.GetRasterBand(1))                     # Read raster object into numpy array
+    LakeRaster = None
     Lake_arr[Lake_arr==0] = NoDataVal                                           # Convert 0 to WRF-Hydro NoData
-    rootgrp.variables['LAKEGRID'][:] = Lake_arr                                # Write array to output netCDF file
+    if Gridded:
+        rootgrp.variables['LAKEGRID'][:] = Lake_arr                             # Write array to output netCDF file
+    else:
+        rootgrp.variables['LAKEGRID'][:] = NoDataVal                            # No need to populate LAKEGRID if not using gridded lakes
     print('    Process: LAKEGRID written to output netCDF.')
 
     # Find the maximum flow accumulation value for each lake
@@ -2446,7 +2276,8 @@ def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, 
     for lake,maxfac in flac_max.items():
         strm_arr[numpy.logical_and(Lake_arr==lake, flac_arr==maxfac)] = lake    # Set the lake outlet to the lake ID in Channelgrid
     del flac_arr
-    rootgrp.variables['CHANNELGRID'][:] = strm_arr
+    if Gridded:
+        rootgrp.variables['CHANNELGRID'][:] = strm_arr
     print('    Process: CHANNELGRID written to output netCDF.')
 
     # Now march down a set number of pixels to get minimum lake elevation
@@ -2460,8 +2291,12 @@ def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, 
     snapPourFile = os.path.join(projdir, snapPour)
     wbt.snap_pour_points(frxst_FC, fac, snapPour, tolerance)                  # Snap pour points to flow accumulation grid within a tolerance
 
-    # Read the shapefile from previous Snap Pour Points and extract the values directly
+    # Gathering minimum elevation reqiures sampling at the location below reservoir outlets
     fill_arr = rootgrp.variables['TOPOGRAPHY'][:]                               # Read elevation array from Fulldom
+    max_elevs = {lake:fill_arr[Lake_arr==lake].max() for lake in lake_uniques}
+    del Lake_arr, lake_uniques
+
+    # Read the shapefile from previous Snap Pour Points and extract the values directly from the grid
     snap_ds = ogr.Open(snapPourFile, 0)
     pointlyr = snap_ds.GetLayer()                                               # Get the 'layer' object from the data source
     min_elevs = {}
@@ -2474,12 +2309,6 @@ def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, 
         del idval, row, col
     snap_ds = pointlyr = None
     ogr.GetDriverByName(VectorDriver).DeleteDataSource(snapPourFile)
-
-    # Gathering minimum elevation reqiures sampling at the location below reservoir outlets
-    max_elevs = {lake:fill_arr[Lake_arr==lake].max() for lake in lake_uniques}
-    del Lake_arr, lake_uniques
-
-    # Delete temporary point shapefiles
     ogr.GetDriverByName(VectorDriver).DeleteDataSource(frxst_FC)
 
     # Only add in 'missing' lakes if this is a reach-routing simulation and lakes
@@ -2491,18 +2320,15 @@ def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, 
         MissingLks = [item for item in lakeIDList if item not in min_elev_keys]     # 2/23/2018: Find lakes that were not resolved on the grid
         if len(MissingLks) > 0:
             print('    Found {0} lakes that could not be resolved on the grid: {1}\n      Sampling elevation from the centroid of these features.'.format(len(MissingLks), str(MissingLks)))
-            ds = ogr.Open(outshp, 0)
-            Lakeslyr = ds.GetLayer()
-            Lakeslyr.SetAttributeFilter('"%s" IN (%s)' %(lakeID, str(MissingLks)[1:-1]))    # Select the missing lakes from the input shapefile
             centroidElev = {}
-            for feature in Lakeslyr:
-                idval = feature.GetField(lakeID)
-                centroid = feature.GetGeometryRef().Centroid()
+            for idval in MissingLks:
+                centroid = ogr.Geometry(ogr.wkbPoint)
+                centroid.AddPoint(cen_lons[idval], cen_lats[idval])
+                centroid.Transform(coordTrans_inv)                              # Transform the geometry
                 row, col = grid_obj.xy_to_grid_ij(centroid.GetX(), centroid.GetY())
                 centroidElev[idval] = fill_arr[row, col]
-                feature = centroid = None
-                del row, col, idval
-            Lakeslyr = ds = None
+                centroid = None
+                del row, col, centroid, idval
 
             # Update dictionaries with information on the lakes that were not resolved on the grid
             max_elevs.update(centroidElev)                                      # Add single elevation value as max elevation
@@ -2514,9 +2340,9 @@ def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, 
     elevRange = {key:max_elevs[key]-val for key,val in min_elevs.items()}   # Get lake depths
     noDepthLks = {key:val for key,val in elevRange.items() if val<minDepth}     # Make a dictionary of these lakes
     if len(noDepthLks) > 0:
-        print('    Found {0} lakes with no elevation range. Providing minimum depth of %sm for these lakes.'.format(len(noDepthLks), minDepth))
+        print('    Found {0} lakes with no elevation range. Providing minimum depth of {1}m for these lakes.'.format(len(noDepthLks), minDepth))
         min_elevs.update({key:max_elevs[key]-minDepth for key,val in noDepthLks.items() if val==0 }) # Give these lakes a minimum depth
-        noDepthFile = os.path.join(projdir, 'Lakes_with_minimum_depth.csv')
+        noDepthFile = os.path.join(projdir, minDepthCSV)
         with open(noDepthFile,'w') as f:
             w = csv.writer(f)
             for item in noDepthLks.items():
@@ -2533,36 +2359,11 @@ def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, 
     WeirE_vals = {x:(min_elevs[x] + ((max_elevs[x] - min_elevs[x])*0.9)) for x in min_elev_keys}
     del min_elev_keys
 
-    #  Gather centroid lat/lons
-    ds1, Layer = raster_to_polygon(LakeRaster, grid_obj.proj, geom_typ=ogr.wkbMultiPolygon)
-    LakeRaster = None
-
-    # Dissolve multiple features to multipolygon feature layer by field value.
-    ds2 = dissolve_polygon_to_multipolygon(ds1, Layer, 'RASTERVALU')
-    ds1 = None
-    #out_shp = ogr.GetDriverByName(VectorDriver).CopyDataSource(ds2, out_lake_raster_shp)
-    #out_shp = None
-
-    # Create a point geometry object from gathered lake centroid points
-    print('    Starting to gather lake centroid information.')
-    #ds2 = ogr.Open(out_lake_raster_shp, 0)
-    Lakeslyr = ds2.GetLayer()
-    wgs84_proj = osr.SpatialReference()
-    wgs84_proj.ImportFromProj4(wgs84_proj4)
-    coordTrans = osr.CoordinateTransformation(grid_obj.proj, wgs84_proj)
-    cen_lats = {}
-    cen_lons = {}
-    for feature in Lakeslyr:
-        idval = feature.GetField('RASTERVALU')
-        centroid = feature.GetGeometryRef().Centroid()
-        x, y = centroid.GetX(), centroid.GetY()
-        centroid.Transform(coordTrans)                                      # Transform the geometry
-        cen_lats[idval] = centroid.GetY()
-        cen_lons[idval] = centroid.GetX()
-        del x, y, idval
-    feature = centroid = Lakeslyr = None    # ds = None
-    del ds2, Lakeslyr
-    print('    Done gathering lake centroid information.')
+    ##    # Dissolve multiple features to multipolygon feature layer by field value.
+    ##    ds1, Layer = raster_to_polygon(LakeRaster, grid_obj.proj, geom_typ=ogr.wkbMultiPolygon)
+    ##    ds2 = dissolve_polygon_to_multipolygon(ds1, Layer, 'RASTERVALU')
+    ##    out_shp = ogr.GetDriverByName(VectorDriver).CopyDataSource(ds2, out_lake_raster_shp)
+    ##    ds1 = Layer = out_shp = None
 
     # Call function to build lake parameter netCDF file
     build_LAKEPARM(LakeNC, min_elevs, areas, max_elevs, OrificEs, cen_lats, cen_lons, WeirE_vals)
