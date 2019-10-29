@@ -39,28 +39,42 @@ os.environ["PROJ_LIB"] = internal_datadir
 ##import pyproj
 ##print('Script initiated at {0}'.format(time.ctime()))
 
-# Global Variables
+# --- Global Variables --- #
 
 # Input and output files and directories
-inGeogrid = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\geo_em.d01.nc'
+#inGeogrid = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\geo_em.d01.nc'
+inGeogrid = r'C:\Users\ksampson\Desktop\GLERL_Visit_201910\Soils_BNU\geo_em.d01_varsubset.nc'
 out_dir = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Outputs'
-inDEM = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Inputs\iowadem.tif'
-in_csv = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Inputs\Iowa_Gauges_v8.csv'
-in_lakes = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Inputs\NWM_v_2_1_Reservoirs_Preliminary_20190510.shp'
+#inDEM = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Inputs\iowadem.tif'
+#inDEM = r"C:\Data\gisdata\Elevation\HydroSheds_mosaic_NWM_30m.vrt"
+inDEM = r'C:\Data\Projects\Gochis\NWM_v1_2\Terrain_Update\Data\Combined_NED_HS_Elevation_2.tif'
+#in_csv = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Inputs\Iowa_Gauges_v8.csv'
+#in_lakes = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Inputs\NWM_v_2_1_Reservoirs_Preliminary_20190510.shp'
+in_GWPolys = None                                                               # The polygon shapefile to use if defaultGWmethod == 'Polygon Shapefile or Feature Class'
 
 # Outputs - permanent
 out_zip = os.path.join(out_dir, 'wrf_hydro_routing_grids.zip')
 
 # Script parameters
 routing = False                                                                 # Build reach-based routing inputs
-Lake_routing = True                                                            # Allow gridded lake routing
+Lake_routing = False                                                            # Allow gridded lake routing
 regridFactor = 4                                                                # Regridding factor
 ovroughrtfac_val = 1.0
 retdeprtfac_val = 1.0
-basin_mask = True
+basin_mask = False
 threshold = 200
-maskRL = False                                                                  # Allow masking of channels in RouteLink file. May cause WRF-Hydro to crash if True
 lksatfac_val = 1000.0
+
+# Provide the default groundwater basin generation method.
+# Options ['FullDom basn_msk variable', 'FullDom LINKID local basins', 'Polygon Shapefile or Feature Class']
+defaultGWmethod = 'FullDom LINKID local basins'
+GW_with_Stack = True                                                            # Switch for building default groundwater inputs with any routing stack
+
+# --- DO NOT EDIT BELOW THIS LINE --- #
+
+# Methods test switches
+coordMethod1 = True                                                             # Interpolate GEOGRID latitude and longitude coordinate arrays
+coordMethod2 = False                                                            # Transform coordinate pairs at each grid cell from projected to geocentric
 
 # Default temporary output file names
 mosprj_name = 'mosaicprj.tif'                                                   # Default regridded input DEM if saved to disk
@@ -93,18 +107,6 @@ nclist = [wrfh.LDASFile,
             wrfh.GWGRID_nc,
             wrfh.minDepthCSV]
 
-# Provide the default groundwater basin generation method.
-# Options ['FullDom basn_msk variable', 'FullDom LINKID local basins', 'Polygon Shapefile or Feature Class']
-defaultGWmethod = 'FullDom LINKID local basins'
-
-# Other Groundwater input options
-GW_with_Stack = True                                                            # Switch for building default groundwater inputs with any routing stack
-in_GWPolys = None                                                               # The polygon shapefile to use if defaultGWmethod == 'Polygon Shapefile or Feature Class'
-
-# Methods test switches
-coordMethod1 = True                                                             # Interpolate GEOGRID latitude and longitude coordinate arrays
-coordMethod2 = False                                                            # Transform coordinate pairs at each grid cell from projected to geocentric
-
 '''Pre-defining the variables and populating variable attributes is
 a much faster strategry than creating and populating each variable
 sequentially, especially for netCDF3 versions. Also, unsigned integer
@@ -123,32 +125,9 @@ varList2D = [['CHANNELGRID', 'i4', ''],
             ['landuse', 'f4', ''],
             ['LKSATFAC', 'f4', '']]
 
+# --- End Global Variables --- #
+
 # --- Classes --- #
-class TeeNoFile(object):
-    '''
-    Send print statements to a log file:
-    http://web.archive.org/web/20141016185743/https://mail.python.org/pipermail/python-list/2007-May/460639.html
-    https://stackoverflow.com/questions/11124093/redirect-python-print-output-to-logger/11124247
-    '''
-    def __init__(self, name, mode):
-        self.file = open(name, mode)
-        self.stdout = sys.stdout
-        sys.stdout = self
-    def close(self):
-        if self.stdout is not None:
-            sys.stdout = self.stdout
-            self.stdout = None
-        if self.file is not None:
-            self.file.close()
-            self.file = None
-    def write(self, data):
-        self.file.write(data)
-        self.stdout.write(data)
-    def flush(self):
-        self.file.flush()
-        self.stdout.flush()
-    def __del__(self):
-        self.close()
 # --- End Classes --- #
 
 # Main Codeblock
@@ -157,7 +136,7 @@ if __name__ == '__main__':
 
     # Configure logging
     logfile = out_zip.replace('.zip', '.log')
-    tee = TeeNoFile(logfile, 'w')
+    tee = wrfh.TeeNoFile(logfile, 'w')
 
     if runGEOGRID_STANDALONE:
 
@@ -175,6 +154,8 @@ if __name__ == '__main__':
 
         if 'in_csv' in locals():
             AddGages = True
+        else:
+            AddGages = False
 
         # Add variables depending on the input options
         if routing:
@@ -189,7 +170,7 @@ if __name__ == '__main__':
         print('    Created projection definition from input NetCDF GEOGRID file.')
 
         # Build output raster from numpy array of the GEOGRID variable requested. This will be used as a template later on
-        LU_INDEX = coarse_grid.numpy_to_Raster(wrfh.flip_grid(rootgrp.variables['LU_INDEX'][0]))
+        LU_INDEX = coarse_grid.numpy_to_Raster(wrfh.flip_grid(rootgrp.variables['LU_INDEX'][:]))
         print('    GeoTransform: {0}'.format(coarse_grid.GeoTransformStr()))                  # Print affine transformation to screen.
 
         # Create spatial metadata file for GEOGRID/LDASOUT grids
@@ -210,8 +191,8 @@ if __name__ == '__main__':
         if coordMethod1:
             print('  Deriving geocentric coordinates on routing grid from bilinear interpolation of geogrid coordinates.')
             # Build latitude and longitude arrays for GEOGRID_LDASOUT spatial metadata file
-            latArr = wrfh.flip_grid(rootgrp.variables['XLAT_M'][0])                 # Extract array of GEOGRID latitude values
-            lonArr = wrfh.flip_grid(rootgrp.variables['XLONG_M'][0])                # Extract array of GEOGRID longitude values
+            latArr = wrfh.flip_grid(rootgrp.variables['XLAT_M'][:])             # Extract array of GEOGRID latitude values
+            lonArr = wrfh.flip_grid(rootgrp.variables['XLONG_M'][:])            # Extract array of GEOGRID longitude values
 
             # Method 1: Use GEOGRID latitude and longitude fields and resample to routing grid
             latRaster1 = coarse_grid.numpy_to_Raster(latArr)                    # Build raster out of GEOGRID latitude array
@@ -219,10 +200,10 @@ if __name__ == '__main__':
 
             latRaster2 = fine_grid.project_to_model_grid(latRaster1)            # Regrid from GEOGRID resolution to routing grid resolution
             lonRaster2 = fine_grid.project_to_model_grid(lonRaster1)            # Regrid from GEOGRID resolution to routing grid resolution
-            latRaster1 = lonRaster1 = None                                          # Destroy rater objects
-            latArr2 = BandReadAsArray(latRaster2.GetRasterBand(1))                  # Read into numpy array
-            lonArr2 = BandReadAsArray(lonRaster2.GetRasterBand(1))                  # Read into numpy array
-            latRaster2 = lonRaster2 = None                                          # Destroy raster objects
+            latRaster1 = lonRaster1 = None                                      # Destroy rater objects
+            latArr2 = BandReadAsArray(latRaster2.GetRasterBand(1))              # Read into numpy array
+            lonArr2 = BandReadAsArray(lonRaster2.GetRasterBand(1))              # Read into numpy array
+            latRaster2 = lonRaster2 = None                                      # Destroy raster objects
             del latArr, lonArr, latRaster1, lonRaster1, latRaster2, lonRaster2
 
         elif coordMethod2:
@@ -240,6 +221,7 @@ if __name__ == '__main__':
         rootgrp2, grid_mapping = wrfh.create_CF_NetCDF(fine_grid, rootgrp2, projdir,
                 notes=processing_notesFD, addVars=varList2D, addLatLon=True,
                 latArr=latArr2, lonArr=lonArr2)
+        del latArr2, lonArr2
 
         # Add some global attribute metadata to the Fulldom file, including relevant WPS attributes for defining the model coordinate system
         rootgrp2.geogrid_used = inGeogrid                                       # Paste path of geogrid file to the Fulldom global attributes
@@ -267,7 +249,7 @@ if __name__ == '__main__':
         # Step 4 - Hyrdo processing functions -- Whitebox
         rootgrp2, fdir, fac, channelgrid, fill, order = wrfh.WB_functions(rootgrp2, outDEM,
                 projdir, threshold, ovroughrtfac_val, retdeprtfac_val, lksatfac_val)
-        wrfh.remove_file(outDEM)
+        #wrfh.remove_file(outDEM)
 
         # If the user provides forecast points as a CSV file, alter outputs accordingly
         if AddGages:
@@ -281,23 +263,22 @@ if __name__ == '__main__':
             rootgrp2 = wrfh.Routing_Table(projdir, rootgrp2, fine_grid, fdir, channelgrid, fill, order, gages=AddGages)
         else:
             print('  Reach-based routing files will not be created.')
-        wrfh.remove_file(fill)                                                  # Delete fill from disk
+        #wrfh.remove_file(fill)                                                  # Delete fill from disk
         wrfh.remove_file(order)                                                  # Delete fill from disk
 
         if Lake_routing:
             # Alter Channelgrid for reservoirs and build reservoir inputs
             rootgrp2 = wrfh.add_reservoirs(rootgrp2, projdir, fac, in_lakes, fine_grid, Gridded=gridded)
-            rootgrp2.close()                                                        # Close Fulldom_hires.nc file
-            del rootgrp2
+        rootgrp2.close()                                                        # Close Fulldom_hires.nc file
+        del rootgrp2
 
         # Build groundwater files
         if GW_with_Stack:
             GWBasns = wrfh.build_GW_Basin_Raster(out_nc2, projdir, defaultGWmethod, channelgrid, fdir, fine_grid, in_Polys=in_GWPolys)
             wrfh.build_GW_buckets(projdir, GWBasns, coarse_grid, Grid=True)
             GWBasns = None
-            del GWBasns
         wrfh.remove_file(fdir)                                                  # Delete fdir from disk
-        wrfh.remove_file(fac)                                                   # Delete fac from disk
+        #wrfh.remove_file(fac)                                                   # Delete fac from disk
         wrfh.remove_file(channelgrid)                                           # Delete channelgrid from disk
 
         # Copmress (zip) the output directory
@@ -306,7 +287,7 @@ if __name__ == '__main__':
         print('Built output .zip file in {0: 3.2f} seconds.'.format(time.time()-tic1))  # Diagnotsitc print statement
 
         # Delete all temporary files
-        shutil.rmtree(projdir)
+        #shutil.rmtree(projdir)
     print('Process completed in {0:3.2f} seconds.'.format(time.time()-tic))
     tee.close()
     del tee                                                                     # Should do nothing

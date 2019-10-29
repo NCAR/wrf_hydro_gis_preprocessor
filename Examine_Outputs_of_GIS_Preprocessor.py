@@ -43,14 +43,11 @@ import wrfhydro_functions as wrfh                                               
 # Input and output files and directories
 in_zip = r"C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Outputs\wrf_hydro_routing_grids.zip"
 out_folder = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Outputs\wrf_hydro_routing_grids_Examine'
-skipfiles = []
 
-#Other Globals
-RasterDriver = 'GTiff'
+# Script Options
+RasterDriver = 'GTiff'                                                          # Driver for output raster format
 suffix = '.tif'                                                                 # File extension to use for output rasters
-
-# Keep a directory of files to delete from the extracted zip file
-dellist = []
+skipfiles = []                                                                  # Files that should not be converted or written to output directory
 
 # --- Functions --- #
 def examine_outputs(out_folder, dellist=[], skipfiles=[]):
@@ -59,6 +56,8 @@ def examine_outputs(out_folder, dellist=[], skipfiles=[]):
     by the WRF-Hydro GIS Pre-processor. Files will be examined and derivatives
     made from 2D netCDF files. Some files will be delted from the input directory.
     '''
+    tic1 = time.time()
+    dellist = []                            # Initialize list to store files to delete from output directory
 
     # Iterate through unzipped files and copy to output directory as necessary
     for dirpath, dirnames, filenames in os.walk(out_folder):
@@ -164,6 +163,6 @@ if __name__ == '__main__':
 
     # Unzip to a known location (make sure no other nc files live here)
     wrfh.ZipCompat(in_zip).extractall(out_folder)
-    examine_outputs(out_folder, dellist, skipfiles)
+    examine_outputs(out_folder, skipfiles=skipfiles)
     print('Extraction of WRF routing grids completed.')
     print('Process complted in {0:3.2f} seconds.'.format(time.time()-tic))
