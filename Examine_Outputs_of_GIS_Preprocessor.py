@@ -41,8 +41,11 @@ import wrfhydro_functions as wrfh                                               
 # Global Variables
 
 # Input and output files and directories
-in_zip = r"C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Outputs\wrf_hydro_routing_grids.zip"
-out_folder = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Outputs\wrf_hydro_routing_grids_Examine'
+#in_zip = r"C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Outputs\wrf_hydro_routing_grids_Iowa2.zip"
+#out_folder = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Outputs\wrf_hydro_routing_grids_Examine'
+
+in_zip = r"C:\Users\ksampson\Desktop\NWM\NWM_Alaska\Domain\Chena\Chena_NED2sec_r4_t200_reach_frxst_pts2.zip"
+out_folder = r'C:\Users\ksampson\Desktop\NWM\NWM_Alaska\Domain\Chena\Chena_NED2sec_r4_t200_reach_frxst_pts2_Examine'
 
 # Script Options
 RasterDriver = 'GTiff'                                                          # Driver for output raster format

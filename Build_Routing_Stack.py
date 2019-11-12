@@ -42,26 +42,31 @@ os.environ["PROJ_LIB"] = internal_datadir
 # --- Global Variables --- #
 
 # Input and output files and directories
-#inGeogrid = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\geo_em.d01.nc'
-inGeogrid = r'C:\Users\ksampson\Desktop\GLERL_Visit_201910\Soils_BNU\geo_em.d01_varsubset.nc'
-out_dir = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Outputs'
-#inDEM = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Inputs\iowadem.tif'
+
+# CONUS
+#inGeogrid = r'C:\Users\ksampson\Desktop\GLERL_Visit_201910\Soils_BNU\geo_em.d01_varsubset.nc'
 #inDEM = r"C:\Data\gisdata\Elevation\HydroSheds_mosaic_NWM_30m.vrt"
-inDEM = r'C:\Data\Projects\Gochis\NWM_v1_2\Terrain_Update\Data\Combined_NED_HS_Elevation_2.tif'
-#in_csv = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Inputs\Iowa_Gauges_v8.csv'
-#in_lakes = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Inputs\NWM_v_2_1_Reservoirs_Preliminary_20190510.shp'
+##inDEM = r'C:\Data\Projects\Gochis\NWM_v1_2\Terrain_Update\Data\Combined_NED_HS_Elevation_2.tif'
+
+# Iowa
+inGeogrid = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\geo_em.d01.nc'
+inDEM = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Inputs\iowadem.tif'
+in_csv = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Inputs\Iowa_Gauges_v8.csv'
+in_lakes = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Inputs\NWM_v_2_1_Reservoirs_Preliminary_20190510.shp'
+
 in_GWPolys = None                                                               # The polygon shapefile to use if defaultGWmethod == 'Polygon Shapefile or Feature Class'
 
 # Outputs - permanent
-out_zip = os.path.join(out_dir, 'wrf_hydro_routing_grids.zip')
+out_dir = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Outputs'
+out_zip = os.path.join(out_dir, 'wrf_hydro_routing_grids_Iowa2.zip')
 
 # Script parameters
 routing = False                                                                 # Build reach-based routing inputs
-Lake_routing = False                                                            # Allow gridded lake routing
+Lake_routing = True                                                            # Allow gridded lake routing
 regridFactor = 4                                                                # Regridding factor
 ovroughrtfac_val = 1.0
 retdeprtfac_val = 1.0
-basin_mask = False
+basin_mask = True
 threshold = 200
 lksatfac_val = 1000.0
 
@@ -126,9 +131,6 @@ varList2D = [['CHANNELGRID', 'i4', ''],
             ['LKSATFAC', 'f4', '']]
 
 # --- End Global Variables --- #
-
-# --- Classes --- #
-# --- End Classes --- #
 
 # Main Codeblock
 if __name__ == '__main__':
@@ -268,6 +270,7 @@ if __name__ == '__main__':
 
         if Lake_routing:
             # Alter Channelgrid for reservoirs and build reservoir inputs
+            pass
             rootgrp2 = wrfh.add_reservoirs(rootgrp2, projdir, fac, in_lakes, fine_grid, Gridded=gridded)
         rootgrp2.close()                                                        # Close Fulldom_hires.nc file
         del rootgrp2
@@ -288,6 +291,7 @@ if __name__ == '__main__':
 
         # Delete all temporary files
         #shutil.rmtree(projdir)
-    print('Process completed in {0:3.2f} seconds.'.format(time.time()-tic))
+
     tee.close()
     del tee                                                                     # Should do nothing
+    print('Process completed in {0:3.2f} seconds.'.format(time.time()-tic))

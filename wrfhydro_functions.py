@@ -15,9 +15,17 @@
 
 # --- Import Modules --- #
 
-# Import Python core modules
+# Import Python system modules
 import sys
 sys.dont_write_bytecode = True
+
+# Handle running Whitebox Tools from Python 2.x
+if sys.version_info < (3, 0):
+    from StringIO import StringIO
+else:
+    from io import StringIO
+
+# Import Python core modules
 import time
 import os
 import glob
@@ -39,8 +47,6 @@ from gdalnumeric import *                                                       
 from osgeo import gdal_array
 import netCDF4
 import numpy
-import subprocess                                                               # Used for calling gdal command line functions
-#from subprocess import Popen, PIPE
 
 # Import whitebox.
 #from whitebox import whitebox_tools                                             # Required if first-time import
@@ -54,10 +60,6 @@ gdal.PushErrorHandler('CPLQuietErrorHandler')
 conda_env_path = os.path.join(os.path.dirname(sys.executable))
 internal_datadir = os.path.join(conda_env_path, "Library", "share", "proj")
 os.environ["PROJ_LIB"] = internal_datadir
-
-### Pyproj
-##import pyproj
-##pyproj.datadir.set_data_dir = internal_datadir
 
 # --- End Import Modules --- #
 
@@ -137,7 +139,7 @@ CF_projdict = {1: "lambert_conformal_conic",
 # Unify all coordinate system variables to have the same name ("crs"). Ths makes it easier for WRF-Hydro output routines to identify the variable and transpose it to output files
 crsVarname = True                                                               # Switch to make all coordinate system variables = "crs" instead of related to the coordinate system name
 crsVar = CF_projdict[0]                                                         # Expose this as a global for other functions in other scripts to use
-wgs84_proj4 = '+proj=longlat +datum=WGS84 +no_defs'
+wgs84_proj4 = '+proj=longlat +datum=WGS84 +no_defs'                             # Proj.4 string used to define WGS84 coordinate systems. Could also use EPSG code 4326 if using ImportFromEPSG.
 
 # Point time-series CF-netCDF file coordinate system
 '''Note that the point netCDF files are handled using a separate coordinate system than the grids.
@@ -632,8 +634,10 @@ def numpy_to_Raster(in_arr, proj_in=None, DX=1, DY=-1, x00=0, y00=0, quiet=True)
         #stats = DataSet.GetRasterBand(1).ComputeStatistics(0)                  # Force recomputation of statistics
         driver = None
 
-    except RuntimeError:
+    #except RuntimeError:
+    except Exception as ex:
         print('ERROR: Unable to build output raster from numpy array.')
+        print(ex)
         raise SystemExit
 
     # Clear objects and return
@@ -1587,8 +1591,16 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
         if fill_deps:
             wbt.fill_single_cell_pits(indem, fill_pits)
             wbt.fill_depressions(fill_pits, fill_depressions, fix_flats=True)
-
+            #remove_file(os.path.join(projdir, fill_pits))                       # Delete temporary file
         elif breach_deps:
+            '''
+            Note that even if a maximum breach length or maximum breach depth is
+            specified, the Whitebox-Tools Breach Depressions tool will currently
+            fill all remaining depressions after the breach depth or length are
+            exceeded such that the output DEM will be completely depressionless.
+            This is not always desirable.
+            '''
+
             #wbt.fill_single_cell_pits(indem, fill_pits)
             #wbt.breach_depressions(fill_pits, fill_depressions, max_depth=z_limit, max_length=x_limit, fill_pits=fill_pits_bool)
             wbt.breach_depressions(indem, fill_depressions, max_depth=z_limit, max_length=x_limit, fill_pits=fill_pits_bool)
@@ -1598,8 +1610,8 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
             #wbt.breach_depressions(indem, fill_depressions, max_depth=z_limit, fill_pits=False)
 
             #remove_file(os.path.join(projdir, fill_pits))                       # Delete temporary file
-            fill_pits = fill_depressions
 
+        fill_pits = fill_depressions
         wbt.d8_pointer(fill_pits, dir_d8, esri_pntr=esri_pntr)
         wbt.d8_flow_accumulation(fill_pits, flow_acc)
 
@@ -2324,7 +2336,7 @@ def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, 
         routing grid. If False, all lakes coincident with the domain boundary
         will be included in LAKEPARM.nc.
     """
-    #(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield, Gridded) = (rootgrp2, projdir, fac, in_lakes, fine_grid, None, None)
+    #(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield, Gridded) = (rootgrp2, projdir, fac, in_lakes, fine_grid, None, gridded)
     tic1 = time.time()                                                          # Set timer
 
     # Setup Whitebox tools
@@ -2393,13 +2405,42 @@ def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, 
     lake_layer.ResetReading()
     print('    Done gathering lake centroid information.')
     lakeIDList = list(areas.keys())
-    lake_ds = lake_layer = None
+    #lake_ds = lake_layer = None
 
     # Convert lake geometries to raster geometries on the model grid
     LakeRaster = FeatToRaster(outshp, fac, lakeID, gdal.GDT_Int32, NoData=NoDataVal)
     Lake_arr = BandReadAsArray(LakeRaster.GetRasterBand(1))                     # Read raster object into numpy array
     LakeRaster = None
     Lake_arr[Lake_arr==0] = NoDataVal                                           # Convert 0 to WRF-Hydro NoData
+
+    # Code-block to eliminate lakes that do not coincide with active channel cells
+    strm_arr = rootgrp.variables['CHANNELGRID'][:]                              # Read channel grid array from Fulldom
+    lake_uniques = numpy.unique(Lake_arr[Lake_arr!=NoDataVal])
+    subsetLakes = True                                                          # Option to eliminate lakes that do not intersect channel network
+    if Gridded and subsetLakes:
+        Lk_chan = {lake:strm_arr[numpy.logical_and(Lake_arr==lake, strm_arr==0)].shape[0]>0 for lake in lake_uniques}   # So slow...
+        old_Lk_count = lake_uniques.shape[0]
+        lake_uniques = numpy.array([lake for lake,val in Lk_chan.items() if val])   # New set of lakes to use
+        new_Lk_count = lake_uniques.shape[0]
+        Lake_arr[~numpy.isin(Lake_arr, lake_uniques)] = NoDataVal               # Remove lakes from Lake Array that are not on channels
+        print('    Found {0} lakes on active channels. Lost {1} lakes that were not on active channels.'.format(new_Lk_count, new_Lk_count-old_Lk_count))
+        del Lk_chan, old_Lk_count, new_Lk_count
+
+        # Reset the 1...n index and eliminate lakes from shapefile that were eliminated here
+        #num = 1                                                                 # Initialize the lake ID counter
+        for feature in lake_layer:
+            idval = feature.GetField(lakeID)
+            if idval not in lake_uniques:
+                lake_layer.DeleteFeature(feature.GetFID())
+            else:
+                #feature.SetField(lakeID, num)      # Add an area field to re-calculate area
+                #lake_layer.SetFeature(feature)
+                #num += 1
+                pass
+        lake_layer.ResetReading()
+    lake_ds = lake_layer = None
+
+    # Save the gridded lake array to the Fulldom file
     if Gridded:
         rootgrp.variables['LAKEGRID'][:] = Lake_arr                             # Write array to output netCDF file
     else:
@@ -2407,13 +2448,11 @@ def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, 
     print('    Process: LAKEGRID written to output netCDF.')
 
     # Find the maximum flow accumulation value for each lake
-    lake_uniques = numpy.unique(Lake_arr[Lake_arr!=NoDataVal])
     flac_arr = rootgrp.variables['FLOWACC'][:]                                  # Read flow accumulation array from Fulldom
     flac_max = {lake:flac_arr[Lake_arr==lake].max() for lake in lake_uniques}
 
     # Iterate over lakes, assigning the outlet pixel to the lake ID in channelgrid
-    strm_arr = rootgrp.variables['CHANNELGRID'][:]                              # Read channel grid array from Fulldom
-    strm_arr[Lake_arr>0] = NoDataVal                                            # Set all lake areas to WRF-Hydro NoData value under this lake
+    strm_arr[Lake_arr>0] = NoDataVal                                            # Set all lake areas to WRF-Hydro NoData value under these lakes
     for lake,maxfac in flac_max.items():
         strm_arr[numpy.logical_and(Lake_arr==lake, flac_arr==maxfac)] = lake    # Set the lake outlet to the lake ID in Channelgrid
     del flac_arr
@@ -2428,9 +2467,9 @@ def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, 
     ds = out_ds = None
     del strm_arr, ds, out_ds
 
-    tolerance = grid_obj.DX * LK_walker
+    tolerance = grid_obj.DX * LK_walker                                         # Snap distance is the horizontal cellsize multiplied by number of pixels to 'walk' downstream
     snapPourFile = os.path.join(projdir, snapPour)
-    wbt.snap_pour_points(frxst_FC, fac, snapPour, tolerance)                  # Snap pour points to flow accumulation grid within a tolerance
+    wbt.snap_pour_points(frxst_FC, fac, snapPour, tolerance)                    # Snap pour points to flow accumulation grid within a tolerance
 
     # Gathering minimum elevation reqiures sampling at the location below reservoir outlets
     fill_arr = rootgrp.variables['TOPOGRAPHY'][:]                               # Read elevation array from Fulldom
