@@ -251,7 +251,7 @@ if __name__ == '__main__':
         # Step 4 - Hyrdo processing functions -- Whitebox
         rootgrp2, fdir, fac, channelgrid, fill, order = wrfh.WB_functions(rootgrp2, outDEM,
                 projdir, threshold, ovroughrtfac_val, retdeprtfac_val, lksatfac_val)
-        #wrfh.remove_file(outDEM)
+        wrfh.remove_file(outDEM)                                                # Delete output DEM from disk
 
         # If the user provides forecast points as a CSV file, alter outputs accordingly
         if AddGages:
@@ -265,8 +265,8 @@ if __name__ == '__main__':
             rootgrp2 = wrfh.Routing_Table(projdir, rootgrp2, fine_grid, fdir, channelgrid, fill, order, gages=AddGages)
         else:
             print('  Reach-based routing files will not be created.')
-        #wrfh.remove_file(fill)                                                  # Delete fill from disk
-        wrfh.remove_file(order)                                                  # Delete fill from disk
+        wrfh.remove_file(fill)                                                  # Delete fill from disk
+        wrfh.remove_file(order)                                                 # Delete order from disk
 
         if Lake_routing:
             # Alter Channelgrid for reservoirs and build reservoir inputs
@@ -281,7 +281,7 @@ if __name__ == '__main__':
             wrfh.build_GW_buckets(projdir, GWBasns, coarse_grid, Grid=True)
             GWBasns = None
         wrfh.remove_file(fdir)                                                  # Delete fdir from disk
-        #wrfh.remove_file(fac)                                                   # Delete fac from disk
+        wrfh.remove_file(fac)                                                   # Delete fac from disk
         wrfh.remove_file(channelgrid)                                           # Delete channelgrid from disk
 
         # Copmress (zip) the output directory
@@ -290,7 +290,7 @@ if __name__ == '__main__':
         print('Built output .zip file in {0: 3.2f} seconds.'.format(time.time()-tic1))  # Diagnotsitc print statement
 
         # Delete all temporary files
-        #shutil.rmtree(projdir)
+        shutil.rmtree(projdir)
 
     tee.close()
     del tee                                                                     # Should do nothing
