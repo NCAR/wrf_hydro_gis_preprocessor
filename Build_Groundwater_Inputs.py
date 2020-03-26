@@ -25,6 +25,7 @@ the groundwater basins.
 import os
 import time
 import shutil
+import copy
 
 # Import additional modules
 import netCDF4
@@ -39,9 +40,13 @@ import Examine_Outputs_of_GIS_Preprocessor as EO
 # --- EDIT BELOW THIS LINE --- #
 
 # Input and output files and directories
-inGeogrid = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\geo_em.d01.nc'
-inFulldom = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Outputs\TestGW\Fulldom_hires.nc'
-out_dir = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Outputs\TestGW'
+#inGeogrid = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\geo_em.d01.nc'
+#inFulldom = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Outputs\TestGW\Fulldom_hires.nc'
+#out_dir = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Outputs\TestGW'
+
+inGeogrid = r'C:\Data\Projects\Arezoo\NewRiverInlet_V21\geo_em.d0x.nc'
+inFulldom = r'C:\Data\Projects\Arezoo\NewRiverInlet_V21\Fulldom_hires.nc'
+out_dir = r'C:\Data\Projects\Arezoo\NewRiverInlet_V21\Test_FOSS'
 
 # Outputs - permanent
 out_zip = os.path.join(out_dir, 'GroundwaterBasins_local.zip')
@@ -55,7 +60,8 @@ defaultGWmethod = 'Polygon Shapefile or Feature Class'
 # If the user selects 'Polygon Shapefile or Feature Class' as input, specify path here. Otherwise, in_GWPolys = None
 #in_GWPolys = None
 #in_GWPolys = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Inputs\GW_Basisn_Boundary_Unit.shp'
-in_GWPolys = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Inputs\GW_Basisn_NHDPlus.shp'
+#in_GWPolys = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Inputs\GW_Basisn_NHDPlus.shp'
+in_GWPolys = r'C:\Data\Projects\Arezoo\NewRiverInlet_V21\clipped_NHDPlus.shp'
 
 # --- EDIT ABOVE THIS LINE --- #
 
@@ -95,6 +101,8 @@ if __name__ == '__main__':
     rootgrp2 = netCDF4.Dataset(inFulldom, 'r')
     coarse_grid = wrfh.WRF_Hydro_Grid(rootgrp1)                                 # Instantiate a grid object for the coarse grid
     fine_grid = wrfh.WRF_Hydro_Grid(rootgrp2)                                   # Instantiate a grid object for the fine grid
+    #fine_grid = copy.copy(coarse_grid)                                          # Copy the grid object for modification
+    #fine_grid.regrid(4)                                                         # Regrid to the coarse grid
 
     # Build inputs required for creating groundwater buckets
     flowdir = fine_grid.numpy_to_Raster(rootgrp2.variables['FLOWDIRECTION'][:])

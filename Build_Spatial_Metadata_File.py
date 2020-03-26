@@ -28,7 +28,9 @@ from gdalnumeric import *
 from osgeo import gdal_array
 
 # Import function library into namespace. Must exist in same directory as this script.
-import wrfhydro_functions as wrfh                                               # Function script packaged with this toolbox
+#import wrfhydro_functions as wrfh                                               # Function script packaged with this toolbox
+from wrfhydro_functions import (WRF_Hydro_Grid, projdict, flip_grid,
+    numpy_to_Raster, wgs84_proj4, ReprojectCoords, outNCType, create_CF_NetCDF)
 
 print('Script initiated at {0}'.format(time.ctime()))
 
@@ -36,7 +38,6 @@ print('Script initiated at {0}'.format(time.ctime()))
 
 # Input and output files and directories
 inGeogrid = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\geo_em.d01.nc'
-#out_nc = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Outputs\GEOGRID_LDASOUT_Spatial_Metadata.nc'
 out_nc = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Outputs\Fulldom_RTOUT_Spatial_Metadata.nc'
 
 # Globals
@@ -74,8 +75,8 @@ if __name__ == '__main__':
 
     # Georeference geogrid file
     rootgrp = netCDF4.Dataset(inGeogrid, 'r')                                   # Establish an object for reading the input NetCDF file
-    coarse_grid = wrfh.WRF_Hydro_Grid(rootgrp)                                  # Instantiate a grid object
-    print('    Map Projection of GEOGRID: {0}'.format(wrfh.projdict[coarse_grid.map_pro]))
+    coarse_grid = WRF_Hydro_Grid(rootgrp)                                  # Instantiate a grid object
+    print('    Map Projection of GEOGRID: {0}'.format(projdict[coarse_grid.map_pro]))
     print('    PROJ4: {0}'.format(coarse_grid.proj4))
     print('    Input GeoTransform: {0}'.format(coarse_grid.GeoTransform()))                   # Print affine transformation to screen.
 
@@ -86,8 +87,8 @@ if __name__ == '__main__':
     print('    New Resolution: {0} {1}'.format(fine_grid.DX, -fine_grid.DY))
 
     # Build latitude and longitude arrays for GEOGRID_LDASOUT spatial metadata file
-    latArr = wrfh.flip_grid(rootgrp.variables['XLAT_M'][0])                 # Extract array of GEOGRID latitude values
-    lonArr = wrfh.flip_grid(rootgrp.variables['XLONG_M'][0])                # Extract array of GEOGRID longitude values
+    latArr = flip_grid(rootgrp.variables['XLAT_M'][0])                 # Extract array of GEOGRID latitude values
+    lonArr = flip_grid(rootgrp.variables['XLONG_M'][0])                # Extract array of GEOGRID longitude values
     rootgrp.close()
     del rootgrp
 
@@ -98,8 +99,8 @@ if __name__ == '__main__':
             print('  Deriving geocentric coordinates on routing grid from bilinear interpolation of geogrid coordinates.')
 
             # Method 1: Use GEOGRID latitude and longitude fields and resample to routing grid
-            latRaster = wrfh.numpy_to_Raster(latArr, coarse_grid.proj, coarse_grid.DX, coarse_grid.DY, coarse_grid.x00, coarse_grid.y00)      # Build raster out of GEOGRID latitude array
-            lonRaster = wrfh.numpy_to_Raster(lonArr, coarse_grid.proj, coarse_grid.DX, coarse_grid.DY, coarse_grid.x00, coarse_grid.y00)      # Build raster out of GEOGRID latitude array
+            latRaster = numpy_to_Raster(latArr, coarse_grid.proj, coarse_grid.DX, coarse_grid.DY, coarse_grid.x00, coarse_grid.y00)      # Build raster out of GEOGRID latitude array
+            lonRaster = numpy_to_Raster(lonArr, coarse_grid.proj, coarse_grid.DX, coarse_grid.DY, coarse_grid.x00, coarse_grid.y00)      # Build raster out of GEOGRID latitude array
 
             if format_out == "RTOUT":
                 latRaster = fine_grid.project_to_model_grid(latRaster)          # Regrid from GEOGRID resolution to routing grid resolution
@@ -115,20 +116,20 @@ if __name__ == '__main__':
 
             # Method 2: Transform each point from projected coordinates to geocentric coordinates
             wgs84_proj = osr.SpatialReference()                                 # Build empty spatial reference object
-            wgs84_proj.ImportFromProj4(wrfh.wgs84_proj4)                        # Imprort from proj4 to avoid EPSG errors (4326)
+            wgs84_proj.ImportFromProj4(wgs84_proj4)                        # Imprort from proj4 to avoid EPSG errors (4326)
 
             if format_out == "RTOUT":
                 pass
 
             xmap, ymap = coarse_grid.getxy()                                    # Get x and y coordinates as numpy array
-            latArr, lonArr = wrfh.ReprojectCoords(xmap, ymap, fine_grid.proj, wgs84_proj)   # Transform coordinate arrays
+            latArr, lonArr = ReprojectCoords(xmap, ymap, fine_grid.proj, wgs84_proj)   # Transform coordinate arrays
             del xmap, ymap, wgs84_proj
     else:
         latArr = lonArr = None
 
     # Create the netCDF file with spatial metadata
-    rootgrp2 = netCDF4.Dataset(out_nc, 'w', format=wrfh.outNCType)
-    rootgrp2, grid_mapping = wrfh.create_CF_NetCDF(fine_grid, rootgrp2, projdir,
+    rootgrp2 = netCDF4.Dataset(out_nc, 'w', format=outNCType)
+    rootgrp2, grid_mapping = create_CF_NetCDF(fine_grid, rootgrp2, projdir,
             notes=processing_notes_SM, addLatLon=latlon_vars, latArr=latArr, lonArr=lonArr)
     rootgrp2.close()
 

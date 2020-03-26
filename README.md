@@ -18,8 +18,6 @@ The scripts for the WRF-Hydro GIS Pre-processor rely on several python modules a
 | proj          | 6.2.0         |
 | python        | 3.7.4         |
 | whitebox      | 1.0.0         |
-| rasterio      | 1.0a9         |
-| shapely       | 1.5.17        |
 
 If you are using Anaconda, creating a new, clean 'wrfh_gis' environment with these needed packages can be done easily and simply one of several ways:
 

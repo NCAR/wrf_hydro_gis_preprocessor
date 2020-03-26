@@ -34,6 +34,7 @@ import zipfile
 from zipfile import ZipFile, ZipInfo
 from collections import defaultdict                                             # Added 09/03/2015Needed for topological sorting algorthm
 from itertools import takewhile, count                                          # Added 09/03/2015Needed for topological sorting algorthm
+import math
 
 # Change any environment variables here
 #os.environ["OGR_WKT_PRECISION"] = "5"                                           # Change the precision of coordinates
@@ -455,7 +456,7 @@ class WRF_Hydro_Grid:
             DataSet.SetProjection(self.WKT)
             DataSet.SetGeoTransform(self.GeoTransform())
 
-            if in_arr.ndim ==2:
+            if in_arr.ndim == 2:
                 in_arr = in_arr[numpy.newaxis]
 
             for band in range(nband):
@@ -516,6 +517,8 @@ class WRF_Hydro_Grid:
         '''
         This function converts a coordinate in (x,y) to the correct row and column
         on a grid. Code from: https://www.perrygeo.com/python-affine-transforms.html
+
+        Grid indices are 0-based.
         '''
         # x,y to col,row.
         col = int((x - self.x00) / self.DX)
@@ -527,6 +530,8 @@ class WRF_Hydro_Grid:
         This function converts a 2D grid index (i,j) the grid cell center coordinate
         (x,y) in the grid coordinate system.
         Code from: https://www.perrygeo.com/python-affine-transforms.html
+
+        Grid indices are 0-based.
         '''
         # col, row to x, y
         x = (col * self.DX) + self.x00 + self.DX/2.0
@@ -567,6 +572,74 @@ class WRF_Hydro_Grid:
         # Finish
         print('    Projected input raster to model grid in {0: 3.2f} seconds.'.format(time.time()-tic1))
         return OutRaster
+
+    def getgrid(self, envelope, layer):
+        '''Function with which to create the grid intersecting grid cells based
+        on a feature geometry envelope. Initiate the class, and use getgrid() to
+        generate a grid mesh and index information about the intersecting cells.
+
+        Note:  The i,j index begins with (1,1) in the Lower Left corner.
+        '''
+
+        """Gridder.getgrid() takes as input an OGR geometry envelope, and will
+        compute the grid polygons that intersect the evelope, returning a list
+        of grid cell polygons along with other attribute information.
+
+        Cell IDs are numbered 1...n
+        I-index values are numbered 1...n from the lower-left corner (left to right).
+        J-index values are numbered 1...n from the lower-left corner (bottom to top).
+        """
+        # Calculate the number of grid cells necessary
+        xmin, xmax, ymin, ymax = envelope
+
+        # Find the i and j indices
+        i0 = int((xmin-self.x00)/self.DX // 1)                              # Floor the value
+        j0 = int((ymax-self.y00)/self.DY // 1)                              # Floor the absolute value
+        i1 = int((xmax-self.x00)/self.DX // 1)                              # Floor the value
+        j1 = int((ymin-self.y00)/self.DY // 1)                              # Floor the absolute value
+
+        # Create a new field on a layer. Add one attribute
+        layer.CreateField(ogr.FieldDefn('id', ogr.OFTInteger))
+        layer.CreateField(ogr.FieldDefn('i_index', ogr.OFTInteger))
+        layer.CreateField(ogr.FieldDefn('j_index', ogr.OFTInteger))
+        LayerDef = layer.GetLayerDefn()                                         # Fetch the schema information for this layer
+
+        # Build OGR polygon objects for each grid cell in the intersecting envelope
+        for x in range(i0, i1+1):
+            if x < 0 or x > self.ncols:
+                continue
+            for y in reversed(range(j0, j1+1)):
+                if y < 0 or y > self.nrows:
+                    continue
+                id1 = (self.nrows*(x+1))-y                                      # This should give the ID of the cell from the lower left corner (1,1)
+
+                # Calculating each grid cell polygon's coordinates
+                x0 = self.x00 + (self.DX*x)
+                x1 = x0 + self.DX
+                y1 = self.y00 - (abs(self.DY)*y)
+                y0 = y1 - abs(self.DY)
+
+                # Create ORG geometry polygon object using a ring
+                myRing = ogr.Geometry(type=ogr.wkbLinearRing)
+                myRing.AddPoint(x0, y1)
+                myRing.AddPoint(x1, y1)
+                myRing.AddPoint(x1, y0)
+                myRing.AddPoint(x0, y0)
+                myRing.AddPoint(x0, y1)
+                geometry = ogr.Geometry(type=ogr.wkbPolygon)
+                geometry.AddGeometry(myRing)
+
+                # Create the feature
+                feature = ogr.Feature(LayerDef)                                     # Create a new feature (attribute and geometry)
+                feature.SetField('id', id1)
+                feature.SetField('cellsize', geometry.Area())
+                feature.SetField('i_index', x+1)
+                feature.SetField('j_index', (self.nrows)-y)
+                feature.SetGeometry(geometry)                                      # Make a feature from geometry object
+                layer.CreateFeature(feature)
+                geometry = feature = None
+                del x0, x1, y1, y0, id1
+        return layer
 
 #gridder_obj = Gridder_Layer(WKT, DX, DY, x00, y00, nrows, ncols)
 
@@ -651,9 +724,9 @@ def get_projection_from_raster(in_raster):
     proj.ImportFromWkt(in_raster.GetProjectionRef())
     return proj
 
-def save_raster(OutGTiff, in_raster, rows, cols, gdaltype, NoData=None):
+def save_raster(OutGTiff, in_raster, rows, cols, gdaltype, NoData=None, Driver='GTiff'):
 
-    target_ds = gdal.GetDriverByName(RasterDriver).Create(OutGTiff, cols, rows, 1, gdaltype)
+    target_ds = gdal.GetDriverByName(Driver).Create(OutGTiff, cols, rows, 1, gdaltype)
 
     band = in_raster.GetRasterBand(1)
     arr_out = band.ReadAsArray()                                                #Read the data into numpy array
@@ -1582,6 +1655,15 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
     # Temporary output files
     flow_acc = "flow_acc.tif"
     fill_pits = "fill_pits.tif"
+
+    sink = True                 # Flag to identify sinks in the input DEM
+    if sink:
+        sink_output = "sinks.tif"
+        sink_depth = "sink_depth.tif"
+        print('  Outputting layer of sink locations: {0}'.format(sink_output))
+        wbt.sink(indem, sink_output, zero_background=False)
+        print('  Outputting layer of sink depths: {0}'.format(sink_depth))
+        wbt.depth_in_sink(indem, sink_depth, zero_background=False)
 
     if Full_Workflow:
         # Perform Fill, Flow Direction, and Flow Accumulation in one step
