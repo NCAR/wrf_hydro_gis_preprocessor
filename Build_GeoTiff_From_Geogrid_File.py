@@ -34,24 +34,23 @@ import time
 import gdal
 import numpy
 import netCDF4
+from distutils.version import LooseVersion
 
 # Import function library into namespace. Must exist in same directory as this script.
-import wrfhydro_functions as wrfh                                               # Function script packaged with this toolbox
-
+from wrfhydro_functions import (WRF_Hydro_Grid, flip_grid, RasterDriver)
 # --- Global Variables --- #
 
 # Input file
-in_nc = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\geo_em.d01.nc'
-#in_nc = r"C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Outputs\wrf_hydro_routing_grids\Fulldom_hires.nc"
+in_nc = r"C:\Users\ksampson\Desktop\NWM\NWM_Alaska\HRRR_AK\NWM\geo_em.d03.20200327_snow.trim.nc"
 
 # Variable information
 Variable = 'HGT_M'
 
 # Output directory
-out_dir = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Outputs'
+out_dir = r'C:\Users\ksampson\Desktop\NWM\NWM_Alaska\HRRR_AK\NWM\FOSS_Domain'
 
 # Script options
-out_Grid_fmt = wrfh.RasterDriver                                                # ['GTiff']
+out_Grid_fmt = RasterDriver                                                     # ['GTiff']
 
 # --- End Global Variables --- #
 
@@ -60,9 +59,12 @@ if __name__ == '__main__':
     print('Script initiated at {0}'.format(time.ctime()))
     tic = time.time()
 
-    rootgrp = netCDF4.Dataset(in_nc, 'r')                                   # Establish an object for reading the input NetCDF file
-    grid_obj = wrfh.WRF_Hydro_Grid(rootgrp)                                  # Instantiate a grid object
+    rootgrp = netCDF4.Dataset(in_nc, 'r')                                       # Establish an object for reading the input NetCDF file
+    grid_obj = WRF_Hydro_Grid(rootgrp)                                          # Instantiate a grid object
     print('    Created projection definition from input NetCDF GEOGRID file.')
+
+    if LooseVersion(netCDF4.__version__) > LooseVersion('1.4.0'):
+        rootgrp.set_auto_mask(False)                                            # Change masked arrays to old default (numpy arrays always returned)
 
     # Convert 2D or 4D input variables to 3D
     variable = rootgrp.variables[Variable]
@@ -75,7 +77,7 @@ if __name__ == '__main__':
 
     # Flip the grid to become north-to-south, which is the ordering used by GDAL to write rasters.
     if grid_obj.isGeogrid:
-        array = wrfh.flip_grid(array)
+        array = flip_grid(array)
 
     # Build output rasters from numpy array of the GEOGRID variables requested
     OutRaster = grid_obj.numpy_to_Raster(array, nband=array.shape[0])
@@ -83,7 +85,7 @@ if __name__ == '__main__':
     del grid_obj, rootgrp, array
 
     # Build a geotiff using an input GEOGRID file and variable name
-    OutGTiff = os.path.join(out_dir, '{0}.tif'.format(Variable))       # Output raster
+    OutGTiff = os.path.join(out_dir, '{0}.tif'.format(Variable))                # Output raster
     if OutRaster is not None:
         target_ds = gdal.GetDriverByName(out_Grid_fmt).CreateCopy(OutGTiff, OutRaster)
         print('    Created {0} raster: {1}'.format(Variable, OutGTiff))

@@ -23,15 +23,14 @@ import time
 import netCDF4
 
 # Import function library into namespace. Must exist in same directory as this script.
-import wrfhydro_functions as wrfh                                               # Function script packaged with this toolbox
-
+from wrfhydro_functions import WRF_Hydro_Grid
 print('Script initiated at {0}'.format(time.ctime()))
 
 # Global Variables
 
 # Input and output files and directories
-inGeogrid = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\geo_em.d01.nc'
-out_dir = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Outputs'
+inGeogrid = r"C:\Users\ksampson\Desktop\NWM\NWM_Alaska\HRRR_AK\NWM\geo_em.d03.20200327_snow.trim.nc"
+out_dir = r'C:\Users\ksampson\Desktop\NWM\NWM_Alaska\HRRR_AK\NWM\FOSS_Domain'
 outPRJ = os.path.join(out_dir, os.path.basename(inGeogrid).replace('.nc', '.prj'))
 
 # Script options
@@ -42,7 +41,7 @@ if __name__ == '__main__':
     tic = time.time()
 
     rootgrp = netCDF4.Dataset(inGeogrid, 'r')                                   # Establish an object for reading the input NetCDF file
-    coarse_grid = wrfh.WRF_Hydro_Grid(rootgrp)                                  # Instantiate a grid object
+    coarse_grid = WRF_Hydro_Grid(rootgrp)                                  # Instantiate a grid object
     rootgrp.close()
     del rootgrp
     print('    Created projection definition from input NetCDF GEOGRID file.')

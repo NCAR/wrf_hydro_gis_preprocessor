@@ -21,6 +21,7 @@ import sys
 import time
 import shutil
 import copy
+from distutils.version import LooseVersion
 
 # Import Additional Modules
 import osr
@@ -30,6 +31,11 @@ import netCDF4
 
 # Import function library into namespace. Must exist in same directory as this script.
 import wrfhydro_functions as wrfh                                               # Function script packaged with this toolbox
+##from wrfhydro_functions import (RasterDriver, LDASFile, FullDom, GW_ASCII, RT_nc,
+##    LK_nc, GW_nc, GWGRID_nc, GWGRID_nc, minDepthCSV, TeeNoFile, WRF_Hydro_Grid,
+##    flip_grid, create_CF_NetCDF, wgs84_proj4, ReprojectCoords, FullDom, WB_functions,
+##    remove_file, forecast_points, Routing_Table, add_reservoirs, build_GW_Basin_Raster,
+##    build_GW_buckets, zipUpFolder)
 
 # Add Proj directory to path
 conda_env_path = os.path.join(os.path.dirname(sys.executable))
@@ -49,25 +55,28 @@ os.environ["PROJ_LIB"] = internal_datadir
 ##inDEM = r'C:\Data\Projects\Gochis\NWM_v1_2\Terrain_Update\Data\Combined_NED_HS_Elevation_2.tif'
 
 # Iowa
-inGeogrid = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\geo_em.d01.nc'
-inDEM = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Inputs\iowadem.tif'
-in_csv = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Inputs\Iowa_Gauges_v8.csv'
-in_lakes = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Inputs\NWM_v_2_1_Reservoirs_Preliminary_20190510.shp'
+inGeogrid = r"C:\Users\ksampson\Desktop\NWM\NWM_Alaska\HRRR_AK\NWM\geo_em.d02.20200327_snow.trim.nc"
+#inDEM = r"C:\Users\ksampson\Desktop\NWM\NWM_Alaska\HRRR_AK\NWM\FOSS_Domain\HGT_M.tif"
+inDEM = r"C:\Users\ksampson\Desktop\NWM\NWM_Alaska\HRRR_AK\NWM\geo_em.d03.20200327_snow.trim.HGTM_SetNull_Elev0_Mask0.tif"
+in_csr = r''
+in_lakes = r''
+#in_csv = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Inputs\Iowa_Gauges_v8.csv'
+#in_lakes = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Inputs\NWM_v_2_1_Reservoirs_Preliminary_20190510.shp'
 
 in_GWPolys = None                                                               # The polygon shapefile to use if defaultGWmethod == 'Polygon Shapefile or Feature Class'
 
 # Outputs - permanent
-out_dir = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Outputs'
-out_zip = os.path.join(out_dir, 'wrf_hydro_routing_grids_Iowa2.zip')
+out_dir = r'C:\Users\ksampson\Desktop\NWM\NWM_Alaska\HRRR_AK\NWM\FOSS_Domain\Alaska_WPS_DEM_r4_t25_gridded_WBT1_2_0'
+out_zip = os.path.join(out_dir, 'Alaska_WPS_DEM_r4_t25_gridded_noflatfix.zip')
 
 # Script parameters
 routing = False                                                                 # Build reach-based routing inputs
-Lake_routing = True                                                            # Allow gridded lake routing
+Lake_routing = False                                                           # Allow gridded lake routing
 regridFactor = 4                                                                # Regridding factor
 ovroughrtfac_val = 1.0
 retdeprtfac_val = 1.0
 basin_mask = True
-threshold = 200
+threshold = 25
 lksatfac_val = 1000.0
 
 # Provide the default groundwater basin generation method.
@@ -165,6 +174,8 @@ if __name__ == '__main__':
 
         # Step 1 - Georeference geogrid file
         rootgrp = netCDF4.Dataset(inGeogrid, 'r')                               # Establish an object for reading the input NetCDF files
+        if LooseVersion(netCDF4.__version__) > LooseVersion('1.4.0'):
+            rootgrp.set_auto_mask(False)                                        # Change masked arrays to old default (numpy arrays always returned)
         coarse_grid = wrfh.WRF_Hydro_Grid(rootgrp)                              # Instantiate a grid object
         fine_grid = copy.copy(coarse_grid)                                      # Copy the grid object for modification
         fine_grid.regrid(regridFactor)                                          # Regrid to the coarse grid

@@ -96,8 +96,8 @@ basinRaster = 'GWBasins.tif'                                                    
 NoDataVal = -9999                                                               # Default NoData value for gridded variables
 walker = 3                                                                      # Number of cells to walk downstream before gaged catchment delineation
 LK_walker = 3                                                                   # Number of cells to walk downstream to get minimum lake elevation
-z_limit = None                                                                  # Maximum fill depth (z-limit) between a sink and it's pour point
-x_limit = None                                                                  # Maximum breach length for breaching depressions, in pixels
+z_limit = 50.0                                                                  # Maximum fill depth (z-limit) between a sink and it's pour point. None or float.
+x_limit = None                                                                  # Maximum breach length for breaching depressions, in pixels. None or Int/Float
 lksatfac_val = 1000.0                                                           # Default LKSATFAC value (unitless coefficient)
 
 # Channel Routing default parameters for the RouteLink file.
@@ -340,9 +340,30 @@ class WRF_Hydro_Grid:
             central_scale_factor = (1 + math.sin(math.radians(abs(phi1))))/2        # Equation for k0, assumes k90 = 1, e=0. This is a sphere, so no flattening
             print('        Central Scale Factor: {0}'.format(central_scale_factor))
 
-            #proj1.SetPS(latitude_of_origin, central_meridian, central_scale_factor, 0, 0)    # example: proj1.SetPS(90, -1.5, 1, 0, 0)
-            proj.SetPS(pole_latitude, central_meridian, central_scale_factor, 0, 0)    # Adjusted 8/7/2017 based on changes made 4/4/2017 as a result of Monaghan's polar sterographic domain. Example: proj1.SetPS(90, -1.5, 1, 0, 0)
+            # Adjusted 8/7/2017 based on changes made 4/4/2017. Example: proj1.SetPS(90, -1.5, 1, 0, 0)
+            #proj.SetPS(pole_latitude, central_meridian, central_scale_factor, 0, 0)
             #proj.SetPS(double clat, double clong, double scale, double fe, double fn)
+
+            # Alternate method? untested.
+            ##proj.SetStereographic(pole_latitude, central_meridian, central_scale_factor, 0, 0)
+
+            # Added 3/30/2020. Using a WKT string instead of a projection object
+            # because ArcGIS cannot interpret the scale_factor parameter when constructing
+            # the projection definition using proj.SetPS or proj.SetSeterographic.
+            Projection_String = ('PROJCS["Sphere_Stereographic",'
+                                 'GEOGCS["GCS_Sphere",'
+                                 'DATUM["D_Sphere",'
+                                 'SPHEROID["Sphere",' + str(sphere_radius) + ',0.0]],'
+                                 'PRIMEM["Greenwich",0.0],'
+                                 'UNIT["Degree",0.0174532925199433]],'
+                                 'PROJECTION["Stereographic"],'
+                                 'PARAMETER["False_Easting",0.0],'
+                                 'PARAMETER["False_Northing",0.0],'
+                                 'PARAMETER["Central_Meridian",' + str(central_meridian) + '],'
+                                 'PARAMETER["Scale_Factor",' + str(central_scale_factor) + '],'
+                                 'PARAMETER["Latitude_Of_Origin",' + str(standard_parallel_1) + '],'
+                                 'UNIT["Meter",1.0]]')
+            proj.ImportFromWkt(Projection_String)
 
         elif self.map_pro == 3:
             # Mercator Projection
@@ -1621,10 +1642,12 @@ def build_GW_buckets(out_dir, GWBasns, grid_obj, Grid=True, saveRaster=False):
     print('Finished building groundwater parameter files in {0: 3.2f} seconds'.format(time.time()-tic1))
     return
 
-def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtfac_val, lksatfac_val):
+def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtfac_val, lksatfac_val, sink=False):
     """
     This function is intended to produce the hydroglocial DEM corrections and derivitive
     products using the Whitebox tools suite.
+
+    sink: Flag to identify sinks in the input DEM
     """
 
     tic1 = time.time()
@@ -1632,48 +1655,68 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
 
     # Whitebox options for running Whitebox in a full workflow
     wbt = WhiteboxTools()
-    wbt.work_dir = projdir
-    wbt.verbose = False
-    esri_pntr = True
-    flat_increment = None                               # Optional elevation increment applied to flat areas in Breach Depressions and Fill Depressions tools
-
-    # Breach Depressions Full Workflow option
-    Full_Workflow = False
+    print('    Using {0}'.format(wbt.version().split('\n')[0]))
+    wbt.work_dir = projdir                              # Set working directory
+    wbt.verbose = False                                 # Verbose output. [True, False]
+    esri_pntr = True                                    # Use the Esri flow direction classification scheme
     fac_type = 'cells'                                  # Output type; one of 'cells', 'sca' (default), and 'ca'
 
-    # Fill Depressions options
-    fill_deps = False                                   # Option to Fill Depressions
-    fix_flats = True                                    # Optional flag indicating whether flat areas should have a small gradient applied
+    # Optional elevation increment applied to flat areas in Breach Depressions and Fill Depressions tools
+    # Appropriate values from 0.01 - 0.00001, None
+    flat_increment = None                      # 0.0001
 
-    # Breach Depression options
-    breach_deps = True                                   # Option to Breach Depressions
-    #max_length = x_limit                                # Optional maximum breach channel length (in grid cells; default is Inf) [None]
-    #max_depth = z_limit                                 # Optional maximum breach depth (default is Inf) [None]
-    #fill_pits_bool = False                              # In Breach Depressions tool, option to fill single cell pits
-    fill_pits_bool = True                                # In Breach Depressions tool, option to fill single cell pits
+    # Workflow options
+    Full_Workflow = False                               # Use the Flow Accumulation Full Workflow tool (fewer options)
+    fill_deps = True                                   # Option to Fill Depressions
+    breach_deps = False                                  # Option to Breach Depressions
+    breach_deps_LC = False                           # Option to use Breach Depressions (Least Cost)
 
     # Temporary output files
     flow_acc = "flow_acc.tif"
     fill_pits = "fill_pits.tif"
 
-    sink = True                 # Flag to identify sinks in the input DEM
+    # Workflow for diagnosing sink extent and sink depth on input DEM.
     if sink:
         sink_output = "sinks.tif"
         sink_depth = "sink_depth.tif"
         print('  Outputting layer of sink locations: {0}'.format(sink_output))
-        wbt.sink(indem, sink_output, zero_background=False)
+        wbt.sink(
+            indem,
+            sink_output,
+            zero_background=False)
         print('  Outputting layer of sink depths: {0}'.format(sink_depth))
-        wbt.depth_in_sink(indem, sink_depth, zero_background=False)
+        wbt.depth_in_sink(
+            indem,
+            sink_depth,
+            zero_background=False)
 
+    # Determine which terrain processing workflow to follow from Whitebox Tools tools.
     if Full_Workflow:
         # Perform Fill, Flow Direction, and Flow Accumulation in one step
-        wbt.flow_accumulation_full_workflow(indem, fill_pits, dir_d8, flow_acc, out_type=fac_type, esri_pntr=esri_pntr)
+        wbt.flow_accumulation_full_workflow(
+            indem,
+            fill_pits,
+            dir_d8,
+            flow_acc,
+            out_type=fac_type,
+            esri_pntr=esri_pntr)
     else:
         # Runs each whitebox tool separately
         if fill_deps:
+
+            # Fill Depressions options
+            fix_flats = False                                   # Optional flag indicating whether flat areas should have a small gradient applied. [True, False]
+            max_depth = z_limit                                # Optional maximum breach depth (default is Inf) [None]
+
             wbt.fill_single_cell_pits(indem, fill_pits)
-            wbt.fill_depressions(fill_pits, fill_depressions, fix_flats=True)
+            wbt.fill_depressions(
+                fill_pits,
+                fill_depressions,
+                fix_flats=fix_flats,
+                flat_increment=flat_increment,
+                max_depth=max_depth)
             #remove_file(os.path.join(projdir, fill_pits))                       # Delete temporary file
+
         elif breach_deps:
             '''
             Note that even if a maximum breach length or maximum breach depth is
@@ -1683,18 +1726,49 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
             This is not always desirable.
             '''
 
+            # Breach Depression options
+            max_length = x_limit                               # Optional maximum breach channel length (in grid cells; default is Inf) [None]
+            max_depth = z_limit                                # Optional maximum breach depth (default is Inf) [None]
+            fill_pits_bool = True                               # In Breach Depressions tool, option to fill single cell pits
+
             #wbt.fill_single_cell_pits(indem, fill_pits)
-            #wbt.breach_depressions(fill_pits, fill_depressions, max_depth=z_limit, max_length=x_limit, fill_pits=fill_pits_bool)
-            wbt.breach_depressions(indem, fill_depressions, max_depth=z_limit, max_length=x_limit, fill_pits=fill_pits_bool)
+            wbt.breach_depressions(
+                indem,
+                fill_depressions,
+                max_depth=max_depth,
+                max_length=max_length,
+                fill_pits=fill_pits_bool,
+                flat_increment=flat_increment)
 
             # The below code is slower, either chained or just using the fill_pits option in the breach depressions algorithm.
             #wbt.breach_single_cell_pits(indem, fill_pits)
             #wbt.breach_depressions(indem, fill_depressions, max_depth=z_limit, fill_pits=False)
-
             #remove_file(os.path.join(projdir, fill_pits))                       # Delete temporary file
 
+        elif breach_deps_LC:
+
+            # Breach Depressions Least Cost Options
+            fill_remaining = True                           # Optional flag indicating whether to fill any remaining unbreached depressions
+            dist = 0                                        # Undocumented parameter. Serach radius? Breach distance? 1000. Large numbers have a huge effect on processing time
+            min_dist_bool = True                            # Optional flag indicating whether to minimize breach distances
+            max_cost_val = None                             # Optional maximum breach cost (default is Inf) (None)
+
+            wbt.breach_depressions_least_cost(
+                indem,
+                fill_depressions,
+                dist,
+                max_cost=max_cost_val,
+                min_dist=min_dist_bool,
+                flat_increment=flat_increment,
+                fill=fill_remaining)
+
+        # This is the variable name for the output filled DEM
         fill_pits = fill_depressions
+
+        # Build the flow direction grid (used to populate FLOWDIRECTION in Fulldom_hires.nc)
         wbt.d8_pointer(fill_pits, dir_d8, esri_pntr=esri_pntr)
+
+        # Build the flow accumulation grid (used to populate FLOWACC in Fulldom_hires.nc)
         wbt.d8_flow_accumulation(fill_pits, flow_acc)
 
     # Process: Fill DEM

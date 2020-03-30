@@ -27,6 +27,7 @@ results (out_folder), if that folder does not already exist.
 import os
 import time
 import shutil
+from distutils.version import LooseVersion
 
 # Import additional modules
 import netCDF4
@@ -36,7 +37,8 @@ from osgeo import gdal_array
 from gdalnumeric import *                                                       # Assists in using BandWriteArray, BandReadAsArray, and CopyDatasetInfo
 
 # Import function library into namespace. Must exist in same directory as this script.
-import wrfhydro_functions as wrfh                                               # Function script packaged with this toolbox
+from wrfhydro_functions import (LK_nc, RT_nc, GW_nc, LDASFile, crsVar,
+    numpy_to_Raster, ZipCompat)
 
 # Global Variables
 
@@ -44,8 +46,8 @@ import wrfhydro_functions as wrfh                                               
 #in_zip = r"C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Outputs\wrf_hydro_routing_grids_Iowa2.zip"
 #out_folder = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Outputs\wrf_hydro_routing_grids_Examine'
 
-in_zip = r"C:\Users\ksampson\Desktop\NWM\NWM_Alaska\Domain\Chena\Chena_NED2sec_r4_t200_reach_frxst_pts2.zip"
-out_folder = r'C:\Users\ksampson\Desktop\NWM\NWM_Alaska\Domain\Chena\Chena_NED2sec_r4_t200_reach_frxst_pts2_Examine'
+in_zip = r"C:\Users\ksampson\Desktop\NWM\NWM_Alaska\HRRR_AK\NWM\FOSS_Domain\Alaska_WPS_DEM_r4_t25_gridded_WBT1_2_0\Alaska_WPS_DEM_r4_t25_gridded_noflatfix.zip"
+out_folder = r'C:\Users\ksampson\Desktop\NWM\NWM_Alaska\HRRR_AK\NWM\FOSS_Domain\Alaska_WPS_DEM_r4_t25_gridded_WBT1_2_0\Examine'
 
 # Script Options
 RasterDriver = 'GTiff'                                                          # Driver for output raster format
@@ -75,7 +77,7 @@ def examine_outputs(out_folder, dellist=[], skipfiles=[]):
                 continue
 
             # Trap to eliminate Parameter tables in NC format from this extraction
-            if file in [wrfh.LK_nc, wrfh.RT_nc, wrfh.GW_nc, wrfh.LDASFile]:
+            if file in [LK_nc, RT_nc, GW_nc, LDASFile]:
                 print('    File Copied: {0}'.format(file))
                 del file, infile
                 continue
@@ -84,13 +86,15 @@ def examine_outputs(out_folder, dellist=[], skipfiles=[]):
 
                 # Establish an object for reading the input NetCDF file
                 rootgrp = netCDF4.Dataset(infile, 'r')
+                if LooseVersion(netCDF4.__version__) > LooseVersion('1.4.0'):
+                    rootgrp.set_auto_mask(False)                                # Change masked arrays to old default (numpy arrays always returned)
 
                 # Using netCDF4 library - still need point2, DX, DY
-                if 'esri_pe_string' in rootgrp.variables[wrfh.crsVar].__dict__:
-                    PE_string = rootgrp.variables[wrfh.crsVar].esri_pe_string
-                elif 'spatial_ref' in rootgrp.variables[wrfh.crsVar].__dict__:
-                    PE_string = rootgrp.variables[wrfh.crsVar].spatial_ref
-                GT = rootgrp.variables[wrfh.crsVar].GeoTransform.split(" ")[0:6]
+                if 'esri_pe_string' in rootgrp.variables[crsVar].__dict__:
+                    PE_string = rootgrp.variables[crsVar].esri_pe_string
+                elif 'spatial_ref' in rootgrp.variables[crsVar].__dict__:
+                    PE_string = rootgrp.variables[crsVar].spatial_ref
+                GT = rootgrp.variables[crsVar].GeoTransform.split(" ")[0:6]
                 GT = tuple(float(item) for item in GT)
                 print('  GeoTransform: {0}'.format(GT))
                 print('  DX: {0}'.format(GT[1]))
@@ -101,7 +105,7 @@ def examine_outputs(out_folder, dellist=[], skipfiles=[]):
                 print('  PROJ.4 string: {0}'.format(proj.ExportToProj4()))
                 for variablename, ncvar in rootgrp.variables.items():
                     if ncvar.dimensions==('y', 'x'):
-                        OutRaster = wrfh.numpy_to_Raster(ncvar[:].copy(), proj, GT[1], GT[5], GT[0], GT[3])
+                        OutRaster = numpy_to_Raster(ncvar[:].copy(), proj, GT[1], GT[5], GT[0], GT[3])
 
                         # Save to disk
                         OutGTiff = os.path.join(out_folder, variablename+suffix)# Output raster
@@ -165,7 +169,7 @@ if __name__ == '__main__':
         os.makedirs(out_folder)
 
     # Unzip to a known location (make sure no other nc files live here)
-    wrfh.ZipCompat(in_zip).extractall(out_folder)
+    ZipCompat(in_zip).extractall(out_folder)
     examine_outputs(out_folder, skipfiles=skipfiles)
     print('Extraction of WRF routing grids completed.')
     print('Process complted in {0:3.2f} seconds.'.format(time.time()-tic))
