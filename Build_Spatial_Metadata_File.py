@@ -19,6 +19,7 @@
 import os
 import time
 import copy
+from distutils.version import LooseVersion
 
 # Import additional modules
 import netCDF4
@@ -28,7 +29,6 @@ from gdalnumeric import *
 from osgeo import gdal_array
 
 # Import function library into namespace. Must exist in same directory as this script.
-#import wrfhydro_functions as wrfh                                               # Function script packaged with this toolbox
 from wrfhydro_functions import (WRF_Hydro_Grid, projdict, flip_grid,
     numpy_to_Raster, wgs84_proj4, ReprojectCoords, outNCType, create_CF_NetCDF)
 
@@ -75,6 +75,8 @@ if __name__ == '__main__':
 
     # Georeference geogrid file
     rootgrp = netCDF4.Dataset(inGeogrid, 'r')                                   # Establish an object for reading the input NetCDF file
+    if LooseVersion(netCDF4.__version__) > LooseVersion('1.4.0'):
+        rootgrp.set_auto_mask(False)                                            # Change masked arrays to old default (numpy arrays always returned)
     coarse_grid = WRF_Hydro_Grid(rootgrp)                                  # Instantiate a grid object
     print('    Map Projection of GEOGRID: {0}'.format(projdict[coarse_grid.map_pro]))
     print('    PROJ4: {0}'.format(coarse_grid.proj4))

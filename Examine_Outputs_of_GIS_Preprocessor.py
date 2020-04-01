@@ -46,8 +46,8 @@ from wrfhydro_functions import (LK_nc, RT_nc, GW_nc, LDASFile, crsVar,
 #in_zip = r"C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Outputs\wrf_hydro_routing_grids_Iowa2.zip"
 #out_folder = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Outputs\wrf_hydro_routing_grids_Examine'
 
-in_zip = r"C:\Users\ksampson\Desktop\NWM\NWM_Alaska\HRRR_AK\NWM\FOSS_Domain\Alaska_WPS_DEM_r4_t25_gridded_WBT1_2_0\Alaska_WPS_DEM_r4_t25_gridded_noflatfix.zip"
-out_folder = r'C:\Users\ksampson\Desktop\NWM\NWM_Alaska\HRRR_AK\NWM\FOSS_Domain\Alaska_WPS_DEM_r4_t25_gridded_WBT1_2_0\Examine'
+in_zip = r"C:\Users\ksampson\Desktop\NWM\NWM_Alaska\HRRR_AK\NWM\FOSS_Domain\Alaska_WPS_DEM_r4_t25_gridded_breachLC.zip"
+out_folder = r"C:\Users\ksampson\Desktop\NWM\NWM_Alaska\HRRR_AK\NWM\FOSS_Domain\Alaska_WPS_DEM_r4_t25_gridded_breachLC_Examine"
 
 # Script Options
 RasterDriver = 'GTiff'                                                          # Driver for output raster format

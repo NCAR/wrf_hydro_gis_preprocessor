@@ -25,7 +25,7 @@ import ogr
 import osr
 
 # Import function library into namespace. Must exist in same directory as this script.
-import wrfhydro_functions as wrfh                                               # Function script packaged with this toolbox
+from wrfhydro_functions import CSV_to_SHP                                       # Function script packaged with this toolbox
 
 print('Script initiated at {0}'.format(time.ctime()))
 
@@ -46,7 +46,7 @@ wgs84_proj4 = '+proj=longlat +datum=WGS84 +no_defs'
 Driver = 'ESRI Shapefile'
 
 # Script options
-CSV_to_SHP = False                                   # Switch for creating a point shapefile from a forecast point CSV file
+CSV_to_shape = False                                   # Switch for creating a point shapefile from a forecast point CSV file
 SHP_to_CSV = True                                  # Switch for creating a CSV file from a point shapefile
 
 # Dictionary to map OGR data types to numpy dtypes - many of these are just a guess,
@@ -75,11 +75,11 @@ if __name__ == '__main__':
         print('      {0} driver not available.'.format(DriverName))
         raise SystemExit
 
-    if CSV_to_SHP:
+    if CSV_to_shape:
         '''
         This block will create a point shapefile from an input CSV file.
         '''
-        ds = wrfh.CSV_to_SHP(inCSV, DriverName='MEMORY')
+        ds = CSV_to_SHP(inCSV, DriverName='MEMORY')
         out_ds = drv.CopyDataSource(ds, outSHP)
         out_ds = ds = None
 

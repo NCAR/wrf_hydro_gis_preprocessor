@@ -34,7 +34,6 @@ import zipfile
 from zipfile import ZipFile, ZipInfo
 from collections import defaultdict                                             # Added 09/03/2015Needed for topological sorting algorthm
 from itertools import takewhile, count                                          # Added 09/03/2015Needed for topological sorting algorthm
-import math
 
 # Change any environment variables here
 #os.environ["OGR_WKT_PRECISION"] = "5"                                           # Change the precision of coordinates
@@ -329,41 +328,75 @@ class WRF_Hydro_Grid:
 
         elif self.map_pro == 2:
             # Polar Stereographic
-            phi1 = standard_parallel_1
+            ##            phi1 = standard_parallel_1
+            ##
+            ##            ### Back out the central_scale_factor (minimum scale factor?) using formula below using Snyder 1987 p.157 (USGS Paper 1395)
+            ##            ##phi = math.copysign(float(pole_latitude), float(latitude_of_origin))    # Get the sign right for the pole using sign of CEN_LAT (latitude_of_origin)
+            ##            ##central_scale_factor = (1 + (math.sin(math.radians(phi1))*math.sin(math.radians(phi))) + (math.cos(math.radians(float(phi1)))*math.cos(math.radians(phi))))/2
+            ##
+            ##            # Method where central scale factor is k0, Derivation from C. Rollins 2011, equation 1: http://earth-info.nga.mil/GandG/coordsys/polar_stereographic/Polar_Stereo_phi1_from_k0_memo.pdf
+            ##            # Using Rollins 2011 to perform central scale factor calculations. For a sphere, the equation collapses to be much  more compact (e=0, k90=1)
+            ##            central_scale_factor = (1 + math.sin(math.radians(abs(phi1))))/2        # Equation for k0, assumes k90 = 1, e=0. This is a sphere, so no flattening
+            ##            print('        Central Scale Factor: {0}'.format(central_scale_factor))
+            ##
+            ##            # Adjusted 8/7/2017 based on changes made 4/4/2017. Example: proj1.SetPS(90, -1.5, 1, 0, 0)
+            ##            proj.SetPS(pole_latitude, central_meridian, central_scale_factor, 0, 0)
+            ##            #proj.SetPS(double clat, double clong, double scale, double fe, double fn)
+            ##
+            ##            # Alternate method? untested.
+            ##            ##proj.SetStereographic(pole_latitude, central_meridian, central_scale_factor, 0, 0)
 
-            ### Back out the central_scale_factor (minimum scale factor?) using formula below using Snyder 1987 p.157 (USGS Paper 1395)
-            ##phi = math.copysign(float(pole_latitude), float(latitude_of_origin))    # Get the sign right for the pole using sign of CEN_LAT (latitude_of_origin)
-            ##central_scale_factor = (1 + (math.sin(math.radians(phi1))*math.sin(math.radians(phi))) + (math.cos(math.radians(float(phi1)))*math.cos(math.radians(phi))))/2
-
-            # Method where central scale factor is k0, Derivation from C. Rollins 2011, equation 1: http://earth-info.nga.mil/GandG/coordsys/polar_stereographic/Polar_Stereo_phi1_from_k0_memo.pdf
-            # Using Rollins 2011 to perform central scale factor calculations. For a sphere, the equation collapses to be much  more compact (e=0, k90=1)
-            central_scale_factor = (1 + math.sin(math.radians(abs(phi1))))/2        # Equation for k0, assumes k90 = 1, e=0. This is a sphere, so no flattening
-            print('        Central Scale Factor: {0}'.format(central_scale_factor))
-
-            # Adjusted 8/7/2017 based on changes made 4/4/2017. Example: proj1.SetPS(90, -1.5, 1, 0, 0)
-            #proj.SetPS(pole_latitude, central_meridian, central_scale_factor, 0, 0)
-            #proj.SetPS(double clat, double clong, double scale, double fe, double fn)
-
-            # Alternate method? untested.
-            ##proj.SetStereographic(pole_latitude, central_meridian, central_scale_factor, 0, 0)
+            ##            # Added 3/30/2020. Sad compromise here. For some reason, Esri will not
+            ##            # read the central_scale_factor parameter when Latitude_Of_Origin is
+            ##            # 90 or 90.0. Adjust slightly, accepting some error (meters) to allow
+            ##            # the resulting files to be properly geolocated in esri products.
+            ##            if pole_latitude > 0:
+            ##                pole_latitude-=0.0000001
+            ##            else:
+            ##                pole_latitude+=0.0000001
 
             # Added 3/30/2020. Using a WKT string instead of a projection object
             # because ArcGIS cannot interpret the scale_factor parameter when constructing
             # the projection definition using proj.SetPS or proj.SetSeterographic.
+            ##            Projection_String = ('PROJCS["Sphere_Stereographic",'
+            ##                                    'GEOGCS["GCS_Sphere",'
+            ##                                    'DATUM["D_Sphere",'
+            ##                                    'SPHEROID["Sphere",' + str(sphere_radius) + ',0.0]],'
+            ##                                    'PRIMEM["Greenwich",0.0],'
+            ##                                    'UNIT["Degree",0.0174532925199433]],'
+            ##                                    'PROJECTION["Stereographic"],'
+            ##                                    'PARAMETER["False_Easting",0.0],'
+            ##                                    'PARAMETER["False_Northing",0.0],'
+            ##                                    'PARAMETER["Central_Meridian",' + str(central_meridian) + '],'
+            ##                                    'PARAMETER["Scale_Factor",' + str(central_scale_factor) + '],'
+            ##                                    'PARAMETER["Latitude_Of_Origin",' + str(pole_latitude) + '],'
+            ##                                    'UNIT["Meter",1.0]]')
+
+            # 3/30/2020: Testing out utility of providing "Stereographic_North_Pole"
+            # or "Stereographic_South_Pole" definitions. This is one variant of  the
+            # supported projections for polar sterographic that does not require scale factor.
+            # However, this may not work for all WRF-supported aspects of stereographic CRS.
+            # https://desktop.arcgis.com/en/arcmap/latest/map/projections/stereographic.htm
+            # https://svn.osgeo.org/gdal/trunk/autotest/osr/osr_esri.py
+            if pole_latitude > 0:
+                pole_orientation = 'North'
+            else:
+                pole_orientation = 'South'
             Projection_String = ('PROJCS["Sphere_Stereographic",'
-                                 'GEOGCS["GCS_Sphere",'
-                                 'DATUM["D_Sphere",'
-                                 'SPHEROID["Sphere",' + str(sphere_radius) + ',0.0]],'
-                                 'PRIMEM["Greenwich",0.0],'
-                                 'UNIT["Degree",0.0174532925199433]],'
-                                 'PROJECTION["Stereographic"],'
-                                 'PARAMETER["False_Easting",0.0],'
-                                 'PARAMETER["False_Northing",0.0],'
-                                 'PARAMETER["Central_Meridian",' + str(central_meridian) + '],'
-                                 'PARAMETER["Scale_Factor",' + str(central_scale_factor) + '],'
-                                 'PARAMETER["Latitude_Of_Origin",' + str(standard_parallel_1) + '],'
-                                 'UNIT["Meter",1.0]]')
+                                    'GEOGCS["GCS_Sphere",'
+                                    'DATUM["D_Sphere",'
+                                    'SPHEROID["Sphere",' + str(sphere_radius) + ',0.0]],'
+                                    'PRIMEM["Greenwich",0.0],'
+                                    'UNIT["Degree",0.0174532925199433]],'
+                                    'PROJECTION["Stereographic_' + pole_orientation + '_Pole"],'
+                                    'PARAMETER["False_Easting",0.0],'
+                                    'PARAMETER["False_Northing",0.0],'
+                                    'PARAMETER["Central_Meridian",' + str(central_meridian) + '],'
+                                    'PARAMETER["standard_parallel_1",' + str(standard_parallel_1) + '],'
+                                    'UNIT["Meter",1.0]]')
+
             proj.ImportFromWkt(Projection_String)
+            #proj.ImportFromESRI([Projection_String])
 
         elif self.map_pro == 3:
             # Mercator Projection
@@ -382,7 +415,7 @@ class WRF_Hydro_Grid:
                 #proj.SetEquirectangular2(double clat, double clong, double pseudostdparallellat, double fe, double fn)
 
         # Set Geographic Coordinate system (datum) for projection
-        proj.SetGeogCS('WRF_Sphere', 'Sphere', '', sphere_radius, 0.0)              # Could try 104128 (EMEP Sphere) well-known?
+        proj.SetGeogCS('Sphere', 'Sphere', '', sphere_radius, 0.0)              # Could try 104128 (EMEP Sphere) well-known?
         #proj.SetGeogCS(String pszGeogName, String pszDatumName, String pszSpheroidName, double dfSemiMajor, double dfInvFlattening)
 
         # Set the origin for the output raster (in GDAL, usuall upper left corner) using projected corner coordinates
@@ -1661,15 +1694,11 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
     esri_pntr = True                                    # Use the Esri flow direction classification scheme
     fac_type = 'cells'                                  # Output type; one of 'cells', 'sca' (default), and 'ca'
 
-    # Optional elevation increment applied to flat areas in Breach Depressions and Fill Depressions tools
-    # Appropriate values from 0.01 - 0.00001, None
-    flat_increment = None                      # 0.0001
-
     # Workflow options
-    Full_Workflow = False                               # Use the Flow Accumulation Full Workflow tool (fewer options)
-    fill_deps = True                                   # Option to Fill Depressions
-    breach_deps = False                                  # Option to Breach Depressions
-    breach_deps_LC = False                           # Option to use Breach Depressions (Least Cost)
+    Full_Workflow = False                              # Use the Flow Accumulation Full Workflow tool (fewer options)
+    fill_deps = False                                  # Option to Fill Depressions
+    breach_deps = False                                # Option to Breach Depressions
+    breach_deps_LC = True                              # Option to use Breach Depressions (Least Cost)
 
     # Temporary output files
     flow_acc = "flow_acc.tif"
@@ -1705,17 +1734,25 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
         if fill_deps:
 
             # Fill Depressions options
-            fix_flats = False                                   # Optional flag indicating whether flat areas should have a small gradient applied. [True, False]
+            fix_flats = True                                   # Optional flag indicating whether flat areas should have a small gradient applied. [True, False]
             max_depth = z_limit                                # Optional maximum breach depth (default is Inf) [None]
+            fill_pits_bool = True                               # Option to fill single cell pits
 
-            wbt.fill_single_cell_pits(indem, fill_pits)
+            # Optional elevation increment applied to flat areas in Breach Depressions and Fill Depressions tools
+            # Appropriate values from 0.01 - 0.00001, None
+            flat_increment = None                      # 0.0001
+
+            if fill_pits_bool:
+                wbt.fill_single_cell_pits(indem, fill_pits)
+                indem = fill_pits
+
             wbt.fill_depressions(
-                fill_pits,
+                indem,
                 fill_depressions,
                 fix_flats=fix_flats,
                 flat_increment=flat_increment,
                 max_depth=max_depth)
-            #remove_file(os.path.join(projdir, fill_pits))                       # Delete temporary file
+            #remove_file(os.path.join(projdir, fill_pits))                  # Delete temporary file
 
         elif breach_deps:
             '''
@@ -1729,9 +1766,15 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
             # Breach Depression options
             max_length = x_limit                               # Optional maximum breach channel length (in grid cells; default is Inf) [None]
             max_depth = z_limit                                # Optional maximum breach depth (default is Inf) [None]
-            fill_pits_bool = True                               # In Breach Depressions tool, option to fill single cell pits
+            fill_pits_bool = True                              # In Breach Depressions tool, option to fill single cell pits
+
+            # Optional elevation increment applied to flat areas in Breach Depressions and Fill Depressions tools
+            # Appropriate values from 0.01 - 0.00001, None
+            flat_increment = None                      # 0.0001
 
             #wbt.fill_single_cell_pits(indem, fill_pits)
+            #wbt.breach_single_cell_pits(indem, fill_pits)
+
             wbt.breach_depressions(
                 indem,
                 fill_depressions,
@@ -1741,17 +1784,19 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
                 flat_increment=flat_increment)
 
             # The below code is slower, either chained or just using the fill_pits option in the breach depressions algorithm.
-            #wbt.breach_single_cell_pits(indem, fill_pits)
-            #wbt.breach_depressions(indem, fill_depressions, max_depth=z_limit, fill_pits=False)
             #remove_file(os.path.join(projdir, fill_pits))                       # Delete temporary file
 
         elif breach_deps_LC:
 
             # Breach Depressions Least Cost Options
             fill_remaining = True                           # Optional flag indicating whether to fill any remaining unbreached depressions
-            dist = 0                                        # Undocumented parameter. Serach radius? Breach distance? 1000. Large numbers have a huge effect on processing time
+            dist = 100                                       # Undocumented parameter. Serach radius? Breach distance? 1000. Large numbers have a huge effect on processing time
             min_dist_bool = True                            # Optional flag indicating whether to minimize breach distances
             max_cost_val = None                             # Optional maximum breach cost (default is Inf) (None)
+
+            # Optional elevation increment applied to flat areas in Breach Depressions and Fill Depressions tools
+            # Appropriate values from 0.01 - 0.00001, None
+            flat_increment = None                      # 0.0001
 
             wbt.breach_depressions_least_cost(
                 indem,

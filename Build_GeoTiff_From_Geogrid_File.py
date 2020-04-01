@@ -42,12 +42,14 @@ from wrfhydro_functions import (WRF_Hydro_Grid, flip_grid, RasterDriver)
 
 # Input file
 in_nc = r"C:\Users\ksampson\Desktop\NWM\NWM_Alaska\HRRR_AK\NWM\geo_em.d03.20200327_snow.trim.nc"
+#in_nc = r"C:\Users\ksampson\Desktop\Testing_Polar_Sterographic_20200331\geo_em.d01.NH.nc"
 
 # Variable information
 Variable = 'HGT_M'
 
 # Output directory
 out_dir = r'C:\Users\ksampson\Desktop\NWM\NWM_Alaska\HRRR_AK\NWM\FOSS_Domain'
+#out_dir = r"C:\Users\ksampson\Desktop\Testing_Polar_Sterographic_20200331"
 
 # Script options
 out_Grid_fmt = RasterDriver                                                     # ['GTiff']

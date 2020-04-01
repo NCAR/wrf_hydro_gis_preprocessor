@@ -26,14 +26,18 @@ import os
 import time
 import shutil
 import copy
+from distutils.version import LooseVersion
 
 # Import additional modules
 import netCDF4
 import gdal
 
 # Import function library into namespace. Must exist in same directory as this script.
-import wrfhydro_functions as wrfh                                               # Function script packaged with this toolbox
-import Examine_Outputs_of_GIS_Preprocessor as EO
+#import wrfhydro_functions as wrfh                                               # Function script packaged with this toolbox
+from wrfhydro_functions import (WRF_Hydro_Grid, GW_nc, GWGRID_nc, dir_d8, streams,
+    basinRaster, RasterDriver, build_GW_Basin_Raster, build_GW_buckets, remove_file,
+    zipUpFolder)
+#import Examine_Outputs_of_GIS_Preprocessor as EO
 
 # --- Global Variables --- #
 
@@ -68,7 +72,7 @@ in_GWPolys = r'C:\Data\Projects\Arezoo\NewRiverInlet_V21\clipped_NHDPlus.shp'
 # --- DO NOT EDIT BELOW THIS LINE --- #
 
 # List of routing-stack files to send to output .zip files
-nclist = [wrfh.GW_nc, wrfh.GWGRID_nc]
+nclist = [GW_nc, GWGRID_nc]
 
 # Save a GeoTiff of the location of the derived basins on the fine and coarse grids
 saveBasins_Fine = False
@@ -89,18 +93,20 @@ if __name__ == '__main__':
     os.makedirs(projdir)
 
     # Setup temporary output files
-    fdir = os.path.join(projdir, wrfh.dir_d8)
-    channelgrid = os.path.join(projdir, wrfh.streams)
+    fdir = os.path.join(projdir, dir_d8)
+    channelgrid = os.path.join(projdir, streams)
     if saveBasins_Fine:
         basinRaster_Fine = os.path.join(projdir, 'GWBasins_fine.tif')
         nclist.append('GWBasins_fine.tif')
     if saveBasins_Coarse:
-        nclist.append(wrfh.basinRaster)
+        nclist.append(basinRaster)
 
     rootgrp1 = netCDF4.Dataset(inGeogrid, 'r')
     rootgrp2 = netCDF4.Dataset(inFulldom, 'r')
-    coarse_grid = wrfh.WRF_Hydro_Grid(rootgrp1)                                 # Instantiate a grid object for the coarse grid
-    fine_grid = wrfh.WRF_Hydro_Grid(rootgrp2)                                   # Instantiate a grid object for the fine grid
+    if LooseVersion(netCDF4.__version__) > LooseVersion('1.4.0'):
+        rootgrp2.set_auto_mask(False)                                            # Change masked arrays to old default (numpy arrays always returned)
+    coarse_grid = WRF_Hydro_Grid(rootgrp1)                                 # Instantiate a grid object for the coarse grid
+    fine_grid = WRF_Hydro_Grid(rootgrp2)                                   # Instantiate a grid object for the fine grid
     #fine_grid = copy.copy(coarse_grid)                                          # Copy the grid object for modification
     #fine_grid.regrid(4)                                                         # Regrid to the coarse grid
 
@@ -112,25 +118,25 @@ if __name__ == '__main__':
     del strm_arr
 
     # Save to disk for the Groundwater tools to use
-    out_ds1 = gdal.GetDriverByName(wrfh.RasterDriver).CreateCopy(fdir, flowdir)
-    out_ds2 = gdal.GetDriverByName(wrfh.RasterDriver).CreateCopy(channelgrid, strm)
+    out_ds1 = gdal.GetDriverByName(RasterDriver).CreateCopy(fdir, flowdir)
+    out_ds2 = gdal.GetDriverByName(RasterDriver).CreateCopy(channelgrid, strm)
     out_ds1 = out_ds2 = flowdir = strm = None
 
     # Build groundwater files
     print('  Building Groundwater Basin inputs.')
-    GWBasns = wrfh.build_GW_Basin_Raster(inFulldom, projdir, defaultGWmethod, channelgrid, fdir, fine_grid, in_Polys=in_GWPolys)
-    wrfh.build_GW_buckets(projdir, GWBasns, coarse_grid, Grid=True, saveRaster=saveBasins_Coarse)
+    GWBasns = build_GW_Basin_Raster(inFulldom, projdir, defaultGWmethod, channelgrid, fdir, fine_grid, in_Polys=in_GWPolys)
+    build_GW_buckets(projdir, GWBasns, coarse_grid, Grid=True, saveRaster=saveBasins_Coarse)
     if saveBasins_Fine:
-        out_ds3 = gdal.GetDriverByName(wrfh.RasterDriver).CreateCopy(basinRaster_Fine, GWBasns)
+        out_ds3 = gdal.GetDriverByName(RasterDriver).CreateCopy(basinRaster_Fine, GWBasns)
         out_ds3 = None
     GWBasns = None
-    wrfh.remove_file(fdir)
-    wrfh.remove_file(channelgrid)
+    remove_file(fdir)
+    remove_file(channelgrid)
     del GWBasns, coarse_grid, fine_grid
 
     # zip the folder
     tic1 = time.time()
-    zipper = wrfh.zipUpFolder(projdir, out_zip, nclist)
+    zipper = zipUpFolder(projdir, out_zip, nclist)
     print('Built output .zip file: {0}'.format(out_zip))
 
     # Delete all temporary files

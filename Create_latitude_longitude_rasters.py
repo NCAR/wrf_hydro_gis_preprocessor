@@ -24,8 +24,9 @@ import gdal
 import osr
 
 # Import function library into namespace. Must exist in same directory as this script.
-import wrfhydro_functions as wrfh                                               # Function script packaged with this toolbox
-
+#import wrfhydro_functions as wrfh                                               # Function script packaged with this toolbox
+from wrfhydro_functions import (get_projection_from_raster, wgs84_proj4, getxy,
+    ReprojectCoords, numpy_to_Raster)
 print('Script initiated at {0}'.format(time.ctime()))
 
 # Global Variables
@@ -49,7 +50,7 @@ if __name__ == '__main__':
     in_raster = gdal.Open(inRaster, 0)                                          # Open with read-only mode
 
     # Gather information from input raster projection
-    proj = wrfh.get_projection_from_raster(in_raster)
+    proj = get_projection_from_raster(in_raster)
     x00, DX, xskew, y00, yskew, DY  = in_raster.GetGeoTransform()
     del xskew, yskew
 
@@ -57,15 +58,15 @@ if __name__ == '__main__':
     # Note that this might not be the same method used in the main pre-processing script
     # because a geogrid file is not required here as input.
     wgs84_proj = osr.SpatialReference()                                 # Build empty spatial reference object
-    wgs84_proj.ImportFromProj4(wrfh.wgs84_proj4)                        # Imprort from proj4 to avoid EPSG errors (4326)
-    xmap, ymap = wrfh.getxy(in_raster)                                          # Get x and y coordinates as numpy array
+    wgs84_proj.ImportFromProj4(wgs84_proj4)                        # Imprort from proj4 to avoid EPSG errors (4326)
+    xmap, ymap = getxy(in_raster)                                          # Get x and y coordinates as numpy array
     in_raster = None
-    lonArr2, latArr2 = wrfh.ReprojectCoords(xmap, ymap, proj, wgs84_proj)  # Transform coordinate arrays
+    lonArr2, latArr2 = ReprojectCoords(xmap, ymap, proj, wgs84_proj)  # Transform coordinate arrays
     del wgs84_proj, in_raster, xmap, ymap
 
     # Convert back to rasters
-    xmap = wrfh.numpy_to_Raster(lonArr2, proj, DX, DY, x00, y00)
-    ymap = wrfh.numpy_to_Raster(latArr2, proj, DX, DY, x00, y00)
+    xmap = numpy_to_Raster(lonArr2, proj, DX, DY, x00, y00)
+    ymap = numpy_to_Raster(latArr2, proj, DX, DY, x00, y00)
     del DX, DY, x00, y00, proj, latArr2, lonArr2
 
     # Section below causing a RuntimeError

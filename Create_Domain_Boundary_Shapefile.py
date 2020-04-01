@@ -24,8 +24,8 @@ import netCDF4
 import ogr
 
 # Import function library into namespace. Must exist in same directory as this script.
-import wrfhydro_functions as wrfh                                               # Function script packaged with this toolbox
-
+#import wrfhydro_functions as wrfh                                               # Function script packaged with this toolbox
+from wrfhydro_functions import WRF_Hydro_Grid
 print('Script initiated at {0}'.format(time.ctime()))
 
 # Global Variables
@@ -43,7 +43,7 @@ if __name__ == '__main__':
     tic = time.time()
 
     rootgrp = netCDF4.Dataset(inGeogrid, 'r')                                   # Establish an object for reading the input NetCDF file
-    coarse_grid = wrfh.WRF_Hydro_Grid(rootgrp)                                  # Instantiate a grid object
+    coarse_grid = WRF_Hydro_Grid(rootgrp)                                       # Instantiate a grid object
     print('    Created projection definition from input NetCDF GEOGRID file.')
 
     # Write out domain boundary shapefile
