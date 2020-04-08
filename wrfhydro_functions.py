@@ -48,8 +48,7 @@ from osgeo import gdal_array
 import netCDF4
 import numpy
 
-# Import whitebox.
-#from whitebox import whitebox_tools                                             # Required if first-time import
+# Import whitebox
 from whitebox.WBT.whitebox_tools import WhiteboxTools
 
 # Module options
