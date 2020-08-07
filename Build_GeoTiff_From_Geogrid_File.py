@@ -99,6 +99,7 @@ if __name__ == '__main__':
     print('Script initiated at {0}'.format(time.ctime()))
     tic = time.time()
 
+    # Setup the input arguments
     parser = ArgumentParser(description=descText, add_help=True)
     parser.add_argument("-i",
                         dest="in_nc",
@@ -138,6 +139,6 @@ if __name__ == '__main__':
     print('Input netCDF variable name: {0}'.format(args.Variable))
     print('Output raster file: {0}'.format(args.out_file))
 
-    #build_geogrid_raster(in_nc, args.Variable, args.out_file)
+    build_geogrid_raster(in_nc, args.Variable, args.out_file)
     print('Process complted in {0:3.2f} seconds.'.format(time.time()-tic))
 # --- End Main Codeblock --- #
