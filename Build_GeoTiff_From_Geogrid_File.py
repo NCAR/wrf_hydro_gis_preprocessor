@@ -41,6 +41,7 @@ from pathlib import Path
 
 # Import function library into namespace. Must exist in same directory as this script.
 from wrfhydro_functions import (WRF_Hydro_Grid, flip_grid, RasterDriver)
+
 # --- Global Variables --- #
 
 # Script options
@@ -88,10 +89,8 @@ def build_geogrid_raster(in_nc, Variable, OutGTiff):
         target_ds = gdal.GetDriverByName(out_Grid_fmt).CreateCopy(OutGTiff, OutRaster)
         print('    Created {0} raster: {1}'.format(Variable, OutGTiff))
         target_ds = None
-
     OutRaster = None
     del Variable, in_nc, OutRaster, OutGTiff
-
 # --- End Functions --- #
 
 # --- Main Codeblock --- #
@@ -104,32 +103,41 @@ if __name__ == '__main__':
     parser.add_argument("-i",
                         dest="in_nc",
                         default='./{0}'.format(defaltGeogrid),
-                        help="Path to WPS geogrid (geo_em.d0*.nc) file. default=./geo_em.d01.nc")
+                        help="Path to WPS geogrid (geo_em.d0*.nc) file or WRF-Hydro Fulldom_hires.nc file. default=./geo_em.d01.nc")
     parser.add_argument("-v",
                         dest="Variable",
                         default='HGT_M',
-                        help="Create a plot of the domain as an image on disk in current working directory as 'domain.png'. Default = false")
+                        help="Name of the variable in the input netCDF file. default=HGT_M")
     parser.add_argument("-o",
                         dest="out_file",
                         default='./Output_GEOGRID_Raster.tif',
-                        help="Output raster file (GeoTiff).")
+                        help="Output GeoTiff raster file.")
 
     # If no arguments are supplied, print help message
     if len(sys.argv)==1:
         parser.print_help(sys.stderr)
         sys.exit(1)
     args = parser.parse_args()
+    all_defaults = {key: parser.get_default(key) for key in vars(args)}
 
     # Handle path of input
-    if args.in_nc == parser.get_default('in_nc'):
+    if args.in_nc == all_defaults["in_nc"]:
+        print('Using default input geogrid location of: {0}'.format(all_defaults["in_nc"]))
         in_nc = Path.cwd().joinpath(defaltGeogrid)
     else:
         in_nc = args.in_nc
+
+    # Handle printing to user the default variable name
+    if args.Variable == all_defaults["Variable"]:
+        print('Using default variable name: {0}'.format(all_defaults["Variable"]))
+    if args.out_file == all_defaults["out_file"]:
+        print('Using default output location: {0}'.format(all_defaults["out_file"]))
 
     # Input WPS Namelist
     print('Input WPS Geogrid or Fulldom file: {0}'.format(in_nc))
     print('Input netCDF variable name: {0}'.format(args.Variable))
     print('Output raster file: {0}'.format(args.out_file))
 
-    build_geogrid_raster(in_nc, args.Variable, args.out_file)
+    #build_geogrid_raster(in_nc, args.Variable, args.out_file)
     print('Process complted in {0:3.2f} seconds.'.format(time.time()-tic))
+# --- End Main Codeblock --- #
