@@ -44,19 +44,27 @@ from wrfhydro_functions import (WRF_Hydro_Grid, flip_grid, RasterDriver)
 
 # --- Global Variables --- #
 
-# Script options
-out_Grid_fmt = RasterDriver                                                     # ['GTiff']
+out_fmt = RasterDriver                                                          # Could overwrite the output format. Default is 'GTiff'
 defaltGeogrid = 'geo_em.d01.nc'
-version_number = '1.0'
+version_number = 'v5.1.2 (8/2020)'
 
 # --- End Global Variables --- #
 
 # --- Functions --- #
-def build_geogrid_raster(in_nc, Variable, OutGTiff):
+def build_geogrid_raster(in_nc, Variable, OutGTiff, out_Grid_fmt=out_fmt):
+    '''
+    Function to build a properly georeferenced raster object from a WRF-Hydro
+    input file and variable name.
+    '''
 
-    rootgrp = netCDF4.Dataset(in_nc, 'r')                                       # Establish an object for reading the input NetCDF file
-    grid_obj = WRF_Hydro_Grid(rootgrp)                                          # Instantiate a grid object
-    print('    Created projection definition from input NetCDF GEOGRID file.')
+    # Check inputs for validity
+    if os.path.exists(in_nc):
+        rootgrp = netCDF4.Dataset(in_nc, 'r')                                       # Establish an object for reading the input NetCDF file
+        grid_obj = WRF_Hydro_Grid(rootgrp)                                          # Instantiate a grid object
+        print('    Created projection definition from input NetCDF GEOGRID file.')
+    else:
+        print('The input netCDF file does not exist: {0}'.format(in_nc))
+        raise SystemExit
 
     if LooseVersion(netCDF4.__version__) > LooseVersion('1.4.0'):
         rootgrp.set_auto_mask(False)                                            # Change masked arrays to old default (numpy arrays always returned)
@@ -68,6 +76,10 @@ def build_geogrid_raster(in_nc, Variable, OutGTiff):
         print('Could not find variable {0} in input netCDF file.'.format(Variable))
         raise SystemExit
 
+    if os.path.exists(OutGTiff):
+        print('The output file already exists and will be overwritten: {0}'.format(OutGTiff))
+
+    # Read dimensions and return array from netCDF variable
     dims = variable.dimensions
     array = variable[:]
     if len(dims) == 2:
@@ -84,10 +96,10 @@ def build_geogrid_raster(in_nc, Variable, OutGTiff):
     rootgrp.close()
     del grid_obj, rootgrp, array
 
-    # Build a geotiff using an input GEOGRID file and variable name
+    # Save in-memory raster file to disk
     if OutRaster is not None:
         target_ds = gdal.GetDriverByName(out_Grid_fmt).CreateCopy(OutGTiff, OutRaster)
-        print('    Created {0} raster: {1}'.format(Variable, OutGTiff))
+        print('    Created {0} format raster from {1} variable: {2}'.format(out_Grid_fmt, Variable, OutGTiff))
         target_ds = None
     OutRaster = None
     del Variable, in_nc, OutRaster, OutGTiff
