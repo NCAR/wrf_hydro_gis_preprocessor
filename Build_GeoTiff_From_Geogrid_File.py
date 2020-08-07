@@ -40,14 +40,13 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 # Import function library into namespace. Must exist in same directory as this script.
-from wrfhydro_functions import (WRF_Hydro_Grid, flip_grid, RasterDriver)
+from wrfhydro_functions import (WRF_Hydro_Grid, RasterDriver, subset_ncVar)
 
 # --- Global Variables --- #
 
 out_fmt = RasterDriver                                                          # Could overwrite the output format. Default is 'GTiff'
-defaltGeogrid = 'geo_em.d01.nc'
-version_number = 'v5.1.2 (8/2020)'
-
+defaltGeogrid = 'geo_em.d01.nc'                                                 # Default input geogrid file name if not provided by user
+overwrite_output = True                                                         # Option to overwrite the output file if it exists already
 # --- End Global Variables --- #
 
 # --- Functions --- #
@@ -59,37 +58,35 @@ def build_geogrid_raster(in_nc, Variable, OutGTiff, out_Grid_fmt=out_fmt):
 
     # Check inputs for validity
     if os.path.exists(in_nc):
-        rootgrp = netCDF4.Dataset(in_nc, 'r')                                       # Establish an object for reading the input NetCDF file
-        grid_obj = WRF_Hydro_Grid(rootgrp)                                          # Instantiate a grid object
-        print('    Created projection definition from input NetCDF GEOGRID file.')
-    else:
-        print('The input netCDF file does not exist: {0}'.format(in_nc))
-        raise SystemExit
+        rootgrp = netCDF4.Dataset(in_nc, 'r')                                   # Establish an object for reading the input NetCDF file
+        grid_obj = WRF_Hydro_Grid(rootgrp)                                      # Instantiate a grid object
 
-    if LooseVersion(netCDF4.__version__) > LooseVersion('1.4.0'):
-        rootgrp.set_auto_mask(False)                                            # Change masked arrays to old default (numpy arrays always returned)
+        # Change masked arrays to old default (numpy arrays always returned)
+        if LooseVersion(netCDF4.__version__) > LooseVersion('1.4.0'):
+            rootgrp.set_auto_mask(False)
+    else:
+        print('    The input netCDF file does not exist: {0}'.format(in_nc))
+        sys.exit(1)
 
     # Convert 2D or 4D input variables to 3D
-    if Variable in rootgrp.variables:
-        variable = rootgrp.variables[Variable]
-    else:
-        print('Could not find variable {0} in input netCDF file.'.format(Variable))
-        raise SystemExit
+    if Variable not in rootgrp.variables:
+        print('    Could not find variable {0} in input netCDF file. Exiting...'.format(Variable))
+        sys.exit(1)
 
     if os.path.exists(OutGTiff):
-        print('The output file already exists and will be overwritten: {0}'.format(OutGTiff))
+        if overwrite_output:
+            print('    The output file already exists and will be overwritten: {0}'.format(OutGTiff))
+        else:
+            print('    The output file already exists. Exiting...')
+            sys.exit(1)
 
-    # Read dimensions and return array from netCDF variable
-    dims = variable.dimensions
-    array = variable[:]
-    if len(dims) == 2:
-        array = array[numpy.newaxis]
-    elif len(dims) == 4:
-        array = array[0]                                                        # Choose the first index, usually Time=0
+    # Enhancement to allow n-dimensional arrays, with max dimension size of 3.
+    array = subset_ncVar(rootgrp.variables[Variable], DimToFlip='south_north')
+    print('    Size of array being sent to raster: {0}'.format(array.shape))
 
-    # Flip the grid to become north-to-south, which is the ordering used by GDAL to write rasters.
-    if grid_obj.isGeogrid:
-        array = flip_grid(array)
+    # Export numpy array to raster (up to 3D).
+    OutRaster = grid_obj.numpy_to_Raster(array, nband=array.shape[0])
+    print('    Bands in output raster: {0}'.format(OutRaster.RasterCount))
 
     # Build output rasters from numpy array of the GEOGRID variables requested
     OutRaster = grid_obj.numpy_to_Raster(array, nband=array.shape[0])

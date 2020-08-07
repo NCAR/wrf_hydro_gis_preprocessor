@@ -160,9 +160,18 @@ dir_d8 = "dir_d8.tif"
 streams = "streams.tif"
 strahler = "strahler.tif"
 sub_basins = "sub_basins.tif"
-snapPour1 = 'snapped_pour_points_1.shp'                                     # Pour points snapped to nearest grid cell center
-snapPour2 = 'snapped_pour_points_2.shp'                                     # Pour points snapped with higher tolerance
-watersheds = "watersheds.tif"                                               # Watersheds delineated above pour points
+snapPour1 = 'snapped_pour_points_1.shp'                                         # Pour points snapped to nearest grid cell center
+snapPour2 = 'snapped_pour_points_2.shp'                                         # Pour points snapped with higher tolerance
+watersheds = "watersheds.tif"                                                   # Watersheds delineated above pour points
+
+###################################################
+# Dimension names to be used to identify certain known dimensions
+yDims = ['south_north', 'y']
+xDims = ['west_east', 'x']
+timeDim = ['Time', 'time']
+###################################################
+
+version_number = 'v5.1.2 (8/2020)'                                              # Pre-processing tool version
 
 # --- End Global Variables --- #
 
@@ -733,6 +742,71 @@ def flip_grid(array):
     correct for the netCDF storage of these grids.'''
     array = array[:, ::-1]                                                     # Flip 2+D grid up-down
     return array
+
+def subset_ncVar(ncVar, times=slice(None), DimToFlip='south_north'):
+    '''
+    7/7/2020:
+    This function will accept a netCDF4 Dataset variable object, and will attempt
+    to identify the time, x, and y dimensions. If requested, a dimension can be
+    specified that will be reversed. This is typically "south_north" dimesnion.
+    Also, a time index or slice may be provided. The time dimension size may
+    only be greater than 1 if the variable has only 3 dimensions (time, x, y),
+    for example.
+    '''
+
+    # Ensure x and y dimensions are in the dimensions of the input dataset
+    dimensions = ncVar.dimensions
+    assert all([any([dim in dimensions for dim in dims]) for dims in [yDims, xDims]])
+
+    # Construct slice to index entire array in original order
+    ind = [slice(None)] * len(dimensions)
+
+    # Find the index for the y dimension
+    xDimIdx = [dimensions.index(dim) for dim in dimensions if dim in xDims][0]
+    print("    X-dimension: '{0}'.".format(dimensions[xDimIdx]))
+
+    # Find the index for the y dimension
+    yDimIdx = [dimensions.index(dim) for dim in dimensions if dim in yDims][0]
+    print("    Y-dimension: '{0}'.".format(dimensions[yDimIdx]))
+
+    # Flip y-dimension if necessary
+    if DimToFlip in dimensions:
+        flipIdx = dimensions.index(DimToFlip)
+        ind[flipIdx] = slice(None,None,-1)
+        print("    Reversing order of dimension '{0}'".format(dimensions[flipIdx]))
+        del flipIdx
+    else:
+        print("    Requested dimension for reversal not found '{0}'.".format(DimToFlip))
+
+    # Find the index for the time dimension
+    timeDimIdx = [dimensions.index(dim) for dim in dimensions if dim in timeDim]
+    if len(timeDimIdx) > 0:
+        timeDimIdx = timeDimIdx[0]
+        print("    Time dimension found: '{0}'.".format(dimensions[timeDimIdx]))
+
+        # Choose either a specific time, all times, or the first time to avoid
+        # having >1 dimensions. We don't want a 4th dimension that is size 1.
+        if ncVar.shape[timeDimIdx] == 1:
+            print('      Time dimension size = 1.')
+            ind[timeDimIdx] = 0
+        else:
+            print('      Found time dimension != 1 [{0}].'.format(ncVar.shape[timeDimIdx]))
+            ind[timeDimIdx] = times
+
+            # Set any additional dimensions to 0
+            additionals = [dim for dim in dimensions if dim not in set(yDims + xDims + timeDim)]
+            for extraDim in additionals:
+                print("    Selecting '{}' = 0.".format(extraDim))
+                ind[dimensions.index(extraDim)] = 0
+    else:
+        print('    No time dimension found.')
+
+    # Read the array as requested, reversing y if necessary, and subsetting in time
+    print('    Dimensions and indices or slices on those dimensions:\n        {0}\n        {1}'.format(list(dimensions),ind))
+    ncArr = ncVar[ind]
+    assert len(ncArr.shape) <= 3
+    del dimensions, timeDimIdx, ind
+    return ncArr
 
 def numpy_to_Raster(in_arr, proj_in=None, DX=1, DY=-1, x00=0, y00=0, quiet=True):
     '''This funciton takes in an input netCDF file, a variable name, the ouput
