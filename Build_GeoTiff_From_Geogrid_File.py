@@ -13,20 +13,21 @@
 # Licence:     Reserved
 # *=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
 
+descText = 'This is a program to export >=2D variables from a WRF-Hydro input file ' + \
+            '(geogrid or Fulldom_hires) file to an output raster format, with all ' + \
+            'spatial and coordinate system metadata. If a 3-dimensional variable is ' + \
+            'selected, individual raster bands will be created in the output raster ' + \
+            'for each index in the 3rd dimension. If a 4-dimensional variable ' + \
+            'is selected, the first index in the 4th dimension will be selected ' + \
+            'and the variable will be treated as a 3-dimensional variable described above.'
+
 '''
-This script will export a 2D gridded variable from a WRF-Hydro input file (Geogrid
-or Fulldom_hires) to an output raster format, with all spatial and coordinate
-system metadata.
-
-If a 3-dimensional variable is selected, individual raster bands will be created
-in the output raster for each item in the first dimension.
-
-If a 4-dimensional variable is selected, the first item in the first dimension
-will be selected and the variable will be treated as a 3-dimensional variable
-described above.
+NOTES:
+    Check for the position of certain dimensions?
 '''
 
 # Import Python Core Modules
+import sys
 import os
 import time
 
@@ -35,31 +36,22 @@ import gdal
 import numpy
 import netCDF4
 from distutils.version import LooseVersion
+from argparse import ArgumentParser
+from pathlib import Path
 
 # Import function library into namespace. Must exist in same directory as this script.
 from wrfhydro_functions import (WRF_Hydro_Grid, flip_grid, RasterDriver)
 # --- Global Variables --- #
 
-# Input file
-in_nc = r"C:\Users\ksampson\Desktop\NWM\NWM_Alaska\HRRR_AK\NWM\geo_em.d03.20200327_snow.trim.nc"
-#in_nc = r"C:\Users\ksampson\Desktop\Testing_Polar_Sterographic_20200331\geo_em.d01.NH.nc"
-
-# Variable information
-Variable = 'HGT_M'
-
-# Output directory
-out_dir = r'C:\Users\ksampson\Desktop\NWM\NWM_Alaska\HRRR_AK\NWM\FOSS_Domain'
-#out_dir = r"C:\Users\ksampson\Desktop\Testing_Polar_Sterographic_20200331"
-
 # Script options
 out_Grid_fmt = RasterDriver                                                     # ['GTiff']
+defaltGeogrid = 'geo_em.d01.nc'
+version_number = '1.0'
 
 # --- End Global Variables --- #
 
-# --- Main Codeblock --- #
-if __name__ == '__main__':
-    print('Script initiated at {0}'.format(time.ctime()))
-    tic = time.time()
+# --- Functions --- #
+def build_geogrid_raster(in_nc, Variable, OutGTiff):
 
     rootgrp = netCDF4.Dataset(in_nc, 'r')                                       # Establish an object for reading the input NetCDF file
     grid_obj = WRF_Hydro_Grid(rootgrp)                                          # Instantiate a grid object
@@ -69,7 +61,12 @@ if __name__ == '__main__':
         rootgrp.set_auto_mask(False)                                            # Change masked arrays to old default (numpy arrays always returned)
 
     # Convert 2D or 4D input variables to 3D
-    variable = rootgrp.variables[Variable]
+    if Variable in rootgrp.variables:
+        variable = rootgrp.variables[Variable]
+    else:
+        print('Could not find variable {0} in input netCDF file.'.format(Variable))
+        raise SystemExit
+
     dims = variable.dimensions
     array = variable[:]
     if len(dims) == 2:
@@ -87,12 +84,52 @@ if __name__ == '__main__':
     del grid_obj, rootgrp, array
 
     # Build a geotiff using an input GEOGRID file and variable name
-    OutGTiff = os.path.join(out_dir, '{0}.tif'.format(Variable))                # Output raster
     if OutRaster is not None:
         target_ds = gdal.GetDriverByName(out_Grid_fmt).CreateCopy(OutGTiff, OutRaster)
         print('    Created {0} raster: {1}'.format(Variable, OutGTiff))
         target_ds = None
 
     OutRaster = None
-    del Variable, in_nc, out_dir, out_Grid_fmt, OutRaster, OutGTiff
+    del Variable, in_nc, OutRaster, OutGTiff
+
+# --- End Functions --- #
+
+# --- Main Codeblock --- #
+if __name__ == '__main__':
+
+    print('Script initiated at {0}'.format(time.ctime()))
+    tic = time.time()
+
+    parser = ArgumentParser(description=descText, add_help=True)
+    parser.add_argument("-i",
+                        dest="in_nc",
+                        default='./{0}'.format(defaltGeogrid),
+                        help="Path to WPS geogrid (geo_em.d0*.nc) file. default=./geo_em.d01.nc")
+    parser.add_argument("-v",
+                        dest="Variable",
+                        default='HGT_M',
+                        help="Create a plot of the domain as an image on disk in current working directory as 'domain.png'. Default = false")
+    parser.add_argument("-o",
+                        dest="out_file",
+                        default='./Output_GEOGRID_Raster.tif',
+                        help="Output raster file (GeoTiff).")
+
+    # If no arguments are supplied, print help message
+    if len(sys.argv)==1:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
+    args = parser.parse_args()
+
+    # Handle path of input
+    if args.in_nc == parser.get_default('in_nc'):
+        in_nc = Path.cwd().joinpath(defaltGeogrid)
+    else:
+        in_nc = args.in_nc
+
+    # Input WPS Namelist
+    print('Input WPS Geogrid or Fulldom file: {0}'.format(in_nc))
+    print('Input netCDF variable name: {0}'.format(args.Variable))
+    print('Output raster file: {0}'.format(args.out_file))
+
+    build_geogrid_raster(in_nc, args.Variable, args.out_file)
     print('Process complted in {0:3.2f} seconds.'.format(time.time()-tic))

@@ -391,7 +391,7 @@ class WRF_Hydro_Grid:
                                     'PARAMETER["False_Easting",0.0],'
                                     'PARAMETER["False_Northing",0.0],'
                                     'PARAMETER["Central_Meridian",' + str(central_meridian) + '],'
-                                    'PARAMETER["standard_parallel_1",' + str(standard_parallel_1) + '],'
+                                    'PARAMETER["Standard_Parallel_1",0.0],'
                                     'UNIT["Meter",1.0]]')
 
             proj.ImportFromWkt(Projection_String)
@@ -973,7 +973,7 @@ def project_Polygons(InputVector, outProj, clipGeom=None):
         trans = True
 
     # Create in-memory output layer to store projected and/or clipped polygons
-    drv = ogr.GetDriverByName('MEMORY')                                         # Other options: 'ESRI Shapefile'
+    drv = ogr.GetDriverByName('MEM')                                         # Other options: 'ESRI Shapefile'
     data_source = drv.CreateDataSource('')                                      # Create the data source. If in-memory, use '' or some other string as the data source name
     outLayer = data_source.CreateLayer('', outProj, ogr.wkbPolygon)             # Create the layer name. Use '' or some other string as the layer name
 
@@ -1694,10 +1694,11 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
     fac_type = 'cells'                                  # Output type; one of 'cells', 'sca' (default), and 'ca'
 
     # Workflow options
-    Full_Workflow = False                              # Use the Flow Accumulation Full Workflow tool (fewer options)
-    fill_deps = False                                  # Option to Fill Depressions
-    breach_deps = False                                # Option to Breach Depressions
-    breach_deps_LC = True                              # Option to use Breach Depressions (Least Cost)
+    Full_Workflow = False                               # Use the Flow Accumulation Full Workflow tool (fewer options)
+    default_Method = True                               # Fill Depressions (Planchon and Darboux)
+    fill_deps = False                                   # Option to Fill Depressions
+    breach_deps = False                                 # Option to Breach Depressions
+    breach_deps_LC = False                              # Option to use Breach Depressions (Least Cost)
 
     # Temporary output files
     flow_acc = "flow_acc.tif"
@@ -1805,6 +1806,20 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
                 min_dist=min_dist_bool,
                 flat_increment=flat_increment,
                 fill=fill_remaining)
+
+        elif default_Method:
+            # Fill Depressions (Planchon and Darboux). This method mimicks the
+            # Esri Spatial Analyst "Fill" tool with no fill limit.
+            # Planchon, O. and Darboux, F., 2002. A fast, simple and versatile algorithm to fill the depressions of digital elevation models. Catena, 46(2-3), pp.159-176.
+
+            # Fill Depressions (Planchon and Darboux) options
+            fix_flats = False                               # Optional flag indicating whether flat areas should have a small gradient applied. [True, False]
+            flat_increment = None                           # 0.0001
+
+            wbt.fill_depressions_planchon_and_darboux(indem,
+                fill_depressions,
+                fix_flats=fix_flats,
+                flat_increment=flat_increment)
 
         # This is the variable name for the output filled DEM
         fill_pits = fill_depressions
@@ -2263,11 +2278,6 @@ def Routing_Table(projdir, rootgrp, grid_obj, fdir, strm, Elev, Strahler, gages=
     wgs84_proj.ImportFromProj4(wgs84_proj4)
     coordTrans = osr.CoordinateTransformation(grid_obj.proj, wgs84_proj)        # Transformation from grid projection to WGS84
 
-    # Setup coordinate transform for calculating lat/lon from x/y
-    wgs84_proj = osr.SpatialReference()
-    wgs84_proj.ImportFromProj4(wgs84_proj4)
-    coordTrans = osr.CoordinateTransformation(grid_obj.proj, wgs84_proj)        # Transformation from grid projection to WGS84
-
     # Initiate dictionaries for storing topology and attribute information
     Lengths = {}                        # Gather the stream feature length
     StrOrder = {}                       # Store stream order for each node
@@ -2671,7 +2681,7 @@ def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, 
     snapPourFile = os.path.join(projdir, snapPour)
     wbt.snap_pour_points(frxst_FC, fac, snapPour, tolerance)                    # Snap pour points to flow accumulation grid within a tolerance
 
-    # Gathering minimum elevation reqiures sampling at the location below reservoir outlets
+    # Gathering maximum elevation from input DEM
     fill_arr = rootgrp.variables['TOPOGRAPHY'][:]                               # Read elevation array from Fulldom
     max_elevs = {lake:fill_arr[Lake_arr==lake].max() for lake in lake_uniques}
     del Lake_arr, lake_uniques
