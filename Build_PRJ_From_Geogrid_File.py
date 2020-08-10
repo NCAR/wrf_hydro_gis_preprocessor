@@ -13,34 +13,71 @@
 # Licence:     <your licence>
 # *=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
 
+descText = "This tool takes an input WRF Geogrid file in NetCDF format and uses the" \
+           " specified variable's projection parameters to produce a projection file."
+
 # Import Modules
 
 # Import Python Core Modules
 import os
 import time
+import sys
 
 # Import additional modules
 import netCDF4
+from argparse import ArgumentParser
+from pathlib import Path
 
 # Import function library into namespace. Must exist in same directory as this script.
 from wrfhydro_functions import WRF_Hydro_Grid
 print('Script initiated at {0}'.format(time.ctime()))
 
 # Global Variables
-
-# Input and output files and directories
-inGeogrid = r"C:\Users\ksampson\Desktop\NWM\NWM_Alaska\HRRR_AK\NWM\geo_em.d03.20200327_snow.trim.nc"
-out_dir = r'C:\Users\ksampson\Desktop\NWM\NWM_Alaska\HRRR_AK\NWM\FOSS_Domain'
-outPRJ = os.path.join(out_dir, os.path.basename(inGeogrid).replace('.nc', '.prj'))
+defaltGeogrid = 'geo_em.d01.nc'
 
 # Script options
 buildPRJ = True                                                                 # Switch for building output Esri Projection File
 
 # Main Codeblock
 if __name__ == '__main__':
+    print('Script initiated at {0}'.format(time.ctime()))
     tic = time.time()
 
-    rootgrp = netCDF4.Dataset(inGeogrid, 'r')                                   # Establish an object for reading the input NetCDF file
+    # Setup the input arguments
+    parser = ArgumentParser(description=descText, add_help=True)
+    parser.add_argument("-i",
+                        dest="in_nc",
+                        default='./{0}'.format(defaltGeogrid),
+                        help="Path to WPS geogrid (geo_em.d0*.nc) file or WRF-Hydro Fulldom_hires.nc file. default=./geo_em.d01.nc")
+    parser.add_argument("-o",
+                        dest="out_dir",
+                        default='',
+                        help="Output directory.")
+
+    # If no arguments are supplied, print help message
+    if len(sys.argv) == 1:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
+    args = parser.parse_args()
+    all_defaults = {key: parser.get_default(key) for key in vars(args)}
+
+    # Handle path of input
+    if args.in_nc == all_defaults["in_nc"]:
+        print('Using default input geogrid location of: {0}'.format(all_defaults["in_nc"]))
+        in_nc = Path.cwd().joinpath(defaltGeogrid)
+    else:
+        in_nc = args.in_nc
+
+    if args.out_dir == all_defaults["out_dir"]:
+        print('Using default output location: {0}'.format(all_defaults["out_file"]))
+
+    # Input and output files and directories
+    outPRJ = os.path.join(args.out_dir, os.path.basename(args.in_nc).replace('.nc', '.prj'))
+
+    print('Input WPS Geogrid or Fulldom file: {0}'.format(in_nc))
+    print('Output prj file: {0}'.format(outPRJ))
+
+    rootgrp = netCDF4.Dataset(args.in_nc, 'r')                                   # Establish an object for reading the input NetCDF file
     coarse_grid = WRF_Hydro_Grid(rootgrp)                                  # Instantiate a grid object
     rootgrp.close()
     del rootgrp
