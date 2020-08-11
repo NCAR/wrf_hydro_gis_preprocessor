@@ -13,10 +13,14 @@
 # Licence:     <your licence>
 # *=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
 
+descText = "This tool takes an input GEOGRID and uses that grid information to produce spatial" \
+           " metadata files against the multiple resolutions of WRF Hydro output files."
+
 # Import Modules
 
 # Import Python Core Modules
 import os
+import sys
 import time
 import copy
 from distutils.version import LooseVersion
@@ -27,6 +31,8 @@ import gdal
 import osr
 from gdalnumeric import *
 from osgeo import gdal_array
+from argparse import ArgumentParser
+from pathlib import Path
 
 # Import function library into namespace. Must exist in same directory as this script.
 from wrfhydro_functions import (WRF_Hydro_Grid, projdict, flip_grid,
@@ -34,17 +40,9 @@ from wrfhydro_functions import (WRF_Hydro_Grid, projdict, flip_grid,
 
 print('Script initiated at {0}'.format(time.ctime()))
 
-# Global Variables
-
-# Input and output files and directories
-inGeogrid = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\geo_em.d01.nc'
-out_nc = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Outputs\Fulldom_RTOUT_Spatial_Metadata.nc'
-
 # Globals
-#format_out = "LDASOUT"                                                          # ["LDASOUT", "RTOUT"]
-format_out = "RTOUT"                                                          # ["LDASOUT", "RTOUT"]
-inFactor = 4.0                                                                    # Regridding factor
-latlon_vars = True                                                             # Include LATITUDE and LONGITUDE 2D variables?
+latlon_vars = True                                                              # Include LATITUDE and LONGITUDE 2D variables?
+defaultGeogrid = 'geo_em.d01.nc'
 
 # Processing Notes to insert into netCDF global attributes
 processing_notes_SM = '''Created: %s''' %time.ctime()                           # Processing notes for Spatial Metdata files
@@ -58,23 +56,66 @@ coordMethod2 = False                                                            
 # Main Codeblock
 if __name__ == '__main__':
     tic = time.time()
-    print('Begining processing on {0}'.format(time.ctime()))
-    projdir = os.path.dirname(out_nc)
+    print('Beginning processing on {0}'.format(time.ctime()))
 
-    if format_out == "LDASOUT":
+    parser = ArgumentParser(description=descText, add_help=True)
+    parser.add_argument("-i",
+                        dest="in_nc",
+                        default='./{0}'.format(defaultGeogrid),
+                        help="Path to WPS geogrid (geo_em.d0*.nc) file or WRF-Hydro Fulldom_hires.nc file."
+                             " default=./geo_em.d01.nc")
+    parser.add_argument("-o",
+                        dest="out_nc",
+                        default='',
+                        help="Output netCDF file.")
+    parser.add_argument("-f",
+                        dest="output_format",
+                        default='RTOUT',
+                        help="Output format. Options: LDASOUT or RTOUT")
+    parser.add_argument("-r",
+                        dest="regrid_factor",
+                        default=4,
+                        help="Regridding factor of data.")
+
+    # If no arguments are supplied, print help message
+    if len(sys.argv) == 1:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
+    args = parser.parse_args()
+    all_defaults = {key: parser.get_default(key) for key in vars(args)}
+
+    # Handle path of input
+    if args.in_nc == all_defaults["in_nc"]:
+        print('Using default input geogrid location of: {0}'.format(all_defaults["in_nc"]))
+        in_nc = Path.cwd().joinpath(defaultGeogrid)
+    else:
+        in_nc = args.in_nc
+
+    if args.out_nc == all_defaults["out_nc"]:
+        print('Using output location of: {0}'.format(all_defaults["out_nc"]))
+
+    if args.output_format == all_defaults["output_format"]:
+        print('Using output format of: {0}'.format(all_defaults["output_format"]))
+
+    if args.regrid_factor == all_defaults["regrid_factor"]:
+        print('Using regrid factor of: {0}'.format(all_defaults["regrid_factor"]))
+
+    projdir = os.path.dirname(args.out_nc)
+
+    if args.output_format == "LDASOUT":
         regridFactor = 1.0
-    elif format_out == "RTOUT":
-        regridFactor = inFactor
+    elif args.output_format == "RTOUT":
+        regridFactor = int(args.regrid_factor)
 
     # Print informational messages
-    print('Input Dataset: {0}'.format(inGeogrid))
-    print('Output Grid Resolution: {0}'.format(format_out))
-    print('Output Regridding Factor: {0}'.format(regridFactor))
+    # print('Input Dataset: {0}'.format(inGeogrid))
+    # print('Output Grid Resolution: {0}'.format(format_out))
+    # print('Output Regridding Factor: {0}'.format(regridFactor))
     print('Directory to be used for outputs: {0}'.format(projdir))
-    print('Output netCDF File: {0}'.format(out_nc))
+    # print('Output netCDF File: {0}'.format(out_nc))
 
     # Georeference geogrid file
-    rootgrp = netCDF4.Dataset(inGeogrid, 'r')                                   # Establish an object for reading the input NetCDF file
+    rootgrp = netCDF4.Dataset(in_nc, 'r')                                   # Establish an object for reading the input NetCDF file
     if LooseVersion(netCDF4.__version__) > LooseVersion('1.4.0'):
         rootgrp.set_auto_mask(False)                                            # Change masked arrays to old default (numpy arrays always returned)
     coarse_grid = WRF_Hydro_Grid(rootgrp)                                  # Instantiate a grid object
@@ -104,7 +145,7 @@ if __name__ == '__main__':
             latRaster = numpy_to_Raster(latArr, coarse_grid.proj, coarse_grid.DX, coarse_grid.DY, coarse_grid.x00, coarse_grid.y00)      # Build raster out of GEOGRID latitude array
             lonRaster = numpy_to_Raster(lonArr, coarse_grid.proj, coarse_grid.DX, coarse_grid.DY, coarse_grid.x00, coarse_grid.y00)      # Build raster out of GEOGRID latitude array
 
-            if format_out == "RTOUT":
+            if args.output_format == "RTOUT":
                 latRaster = fine_grid.project_to_model_grid(latRaster)          # Regrid from GEOGRID resolution to routing grid resolution
                 lonRaster = fine_grid.project_to_model_grid(lonRaster)          # Regrid from GEOGRID resolution to routing grid resolution
 
@@ -120,7 +161,7 @@ if __name__ == '__main__':
             wgs84_proj = osr.SpatialReference()                                 # Build empty spatial reference object
             wgs84_proj.ImportFromProj4(wgs84_proj4)                        # Imprort from proj4 to avoid EPSG errors (4326)
 
-            if format_out == "RTOUT":
+            if args.output_format == "RTOUT":
                 pass
 
             xmap, ymap = coarse_grid.getxy()                                    # Get x and y coordinates as numpy array
@@ -130,7 +171,7 @@ if __name__ == '__main__':
         latArr = lonArr = None
 
     # Create the netCDF file with spatial metadata
-    rootgrp2 = netCDF4.Dataset(out_nc, 'w', format=outNCType)
+    rootgrp2 = netCDF4.Dataset(args.out_nc, 'w', format=outNCType)
     rootgrp2, grid_mapping = create_CF_NetCDF(fine_grid, rootgrp2, projdir,
             notes=processing_notes_SM, addLatLon=latlon_vars, latArr=latArr, lonArr=lonArr)
     rootgrp2.close()
