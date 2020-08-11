@@ -13,18 +13,14 @@
 # Licence:     <your licence>
 # *=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
 
-"""
-This tool takes the output zip file from the ProcessGeogrid script and creates a raster
-from each output NetCDF file. The Input should be a .zip file that was created using the
-WRF Hydro pre-processing tools. The tool will create the folder which will contain the
-results (out_folder), if that folder does not already exist.
-
-
- Ensure that the out_folder exists, but is empty for maximum compatibility.
- """
+descText = "This tool takes the output zip file from the ProcessGeogrid script and creates a raster " \
+           "from each output NetCDF file. The Input should be a .zip file that was created using the" \
+           "WRF Hydro pre-processing tools. The tool will create the folder which will contain the" \
+           "results (out_folder), if that folder does not already exist. "
 
 # Import Python Core Modules
 import os
+import sys
 import time
 import shutil
 from distutils.version import LooseVersion
@@ -35,6 +31,8 @@ import osr
 import gdal
 from osgeo import gdal_array
 from gdalnumeric import *                                                       # Assists in using BandWriteArray, BandReadAsArray, and CopyDatasetInfo
+from argparse import ArgumentParser
+from pathlib import Path
 
 # Import function library into namespace. Must exist in same directory as this script.
 from wrfhydro_functions import (LK_nc, RT_nc, GW_nc, LDASFile, crsVar,
@@ -42,20 +40,11 @@ from wrfhydro_functions import (LK_nc, RT_nc, GW_nc, LDASFile, crsVar,
 
 # Global Variables
 
-# Input and output files and directories
-#in_zip = r"C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Outputs\wrf_hydro_routing_grids_Iowa2.zip"
-#out_folder = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Outputs\wrf_hydro_routing_grids_Examine'
-
-#in_zip = r"C:\Users\ksampson\Desktop\NWM\NWM_Alaska\HRRR_AK\NWM\FOSS_Domain\Alaska_WPS_DEM_r4_t25_gridded_breachLC.zip"
-in_zip = r"C:\Users\ksampson\Desktop\Youcan_Feng\Routing_stack_lakes\WRF_Hydro_routing_grids_Neuse_V2_nomask.zip"
-
-#out_folder = r"C:\Users\ksampson\Desktop\NWM\NWM_Alaska\HRRR_AK\NWM\FOSS_Domain\Alaska_WPS_DEM_r4_t25_gridded_breachLC_Examine"
-out_folder = r"C:\Users\ksampson\Desktop\Youcan_Feng\Routing_stack_lakes_Examine"
-
 # Script Options
 RasterDriver = 'GTiff'                                                          # Driver for output raster format
 suffix = '.tif'                                                                 # File extension to use for output rasters
 skipfiles = []                                                                  # Files that should not be converted or written to output directory
+
 
 # --- Functions --- #
 def examine_outputs(out_folder, dellist=[], skipfiles=[]):
@@ -159,20 +148,44 @@ def examine_outputs(out_folder, dellist=[], skipfiles=[]):
 
 # --- End Functions --- #
 
+
 # Main Codeblock
 if __name__ == '__main__':
     tic = time.time()
     print('Script initiated at {0}'.format(time.ctime()))
 
+    parser = ArgumentParser(description=descText, add_help=True)
+    parser.add_argument("-i",
+                        dest="in_zip",
+                        default='',
+                        help="Path to WRF Hydro routing grids zip file.")
+    parser.add_argument("-o",
+                        dest="out_folder",
+                        default='',
+                        help="Path to output folder.")
+
+    # If no arguments are supplied, print help message
+    if len(sys.argv) == 1:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
+    args = parser.parse_args()
+    all_defaults = {key: parser.get_default(key) for key in vars(args)}
+
+    if args.in_zip == all_defaults["in_zip"]:
+        print('Using input zip location of: {0}'.format(all_defaults["in_zip"]))
+
+    if args.out_folder == all_defaults["out_folder"]:
+        print('Using output location of: {0}'.format(all_defaults["out_folder"]))
+
     # Create output directory for temporary outputs
-    if os.path.exists(out_folder):
+    if os.path.exists(args.out_folder):
         print('Requested output directory already exists. \nPlease specify a non-existant directory as output.')
         raise SystemExit
     else:
-        os.makedirs(out_folder)
+        os.makedirs(args.out_folder)
 
     # Unzip to a known location (make sure no other nc files live here)
-    ZipCompat(in_zip).extractall(out_folder)
-    examine_outputs(out_folder, skipfiles=skipfiles)
+    ZipCompat(args.in_zip).extractall(args.out_folder)
+    examine_outputs(args.out_folder, skipfiles=skipfiles)
     print('Extraction of WRF routing grids completed.')
     print('Process complted in {0:3.2f} seconds.'.format(time.time()-tic))
