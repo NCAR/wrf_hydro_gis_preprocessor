@@ -13,16 +13,21 @@
 # Licence:     <your licence>
 # *=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
 
+descText = "Script to create forecast points."
+
 # Import Modules
 
 # Import Python Core Modules
 import os
+import sys
 import time
 import numpy
 
 # Import additional modules
 import ogr
 import osr
+from argparse import ArgumentParser
+from pathlib import Path
 
 # Import function library into namespace. Must exist in same directory as this script.
 from wrfhydro_functions import CSV_to_SHP                                       # Function script packaged with this toolbox
@@ -31,23 +36,14 @@ print('Script initiated at {0}'.format(time.ctime()))
 
 # Global Variables
 
-# Inputs and output directory
-inCSV = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Inputs\Iowa_Gauges_v8.csv'
-inSHP = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Inputs\Temp_Frxst_Pts.shp'
-out_dir = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Outputs'
-
-# Otput files
-outCSV = os.path.join(out_dir, os.path.basename(inCSV).replace('.shp', '.csv'))
-outSHP = os.path.join(out_dir, os.path.basename(inSHP).replace('.csv', '.shp'))
-
 # Coordinate system of all latitude/longitude coordinates: WGS84, EPSG:4326
 wgs84_proj4 = '+proj=longlat +datum=WGS84 +no_defs'
 
 Driver = 'ESRI Shapefile'
 
 # Script options
-CSV_to_shape = False                                   # Switch for creating a point shapefile from a forecast point CSV file
-SHP_to_CSV = True                                  # Switch for creating a CSV file from a point shapefile
+# CSV_to_shape = False                                   # Switch for creating a point shapefile from a forecast point CSV file
+# SHP_to_CSV = True                                  # Switch for creating a CSV file from a point shapefile
 
 # Dictionary to map OGR data types to numpy dtypes - many of these are just a guess,
 # with numpy.object for List, string, and binary objects
@@ -70,20 +66,55 @@ OGRTypes = {ogr.OFTBinary: numpy.object,
 if __name__ == '__main__':
     tic = time.time()
 
+    # Setup the input arguments
+    parser = ArgumentParser(description=descText, add_help=True)
+    parser.add_argument("-i",
+                        dest="in_csv",
+                        default='',
+                        help="Path to gauges csv.")
+    parser.add_argument("-s",
+                        dest="in_shp",
+                        default='',
+                        help="Path to forecast points shapefile.")
+    parser.add_argument("-o",
+                        dest="out_dir",
+                        default='',
+                        help="Output directory.")
+
+    # If no arguments are supplied, print help message
+    if len(sys.argv) == 1:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
+    args = parser.parse_args()
+    all_defaults = {key: parser.get_default(key) for key in vars(args)}
+
+    # if args.in_csv == all_defaults["in_csv"]:
+    #     print('Using input csv with path: {0}'.format(all_defaults["in_csv"]))
+    #
+    # if args.in_shp == all_defaults["in_shp"]:
+    #     print('Using default shapefile with path: {0}'.format(all_defaults["in_shp"]))
+    #
+    # if args.out_dir == all_defaults["out_dir"]:
+    #     print('Using output location: {0}'.format(all_defaults["out_dir"]))
+
+    # Output files
+    outCSV = os.path.join(args.out_dir, os.path.basename(args.in_shp).replace('.shp', '.csv'))
+    outSHP = os.path.join(args.out_dir, os.path.basename(args.in_csv).replace('.csv', '.shp'))
+
     drv = ogr.GetDriverByName(Driver)
     if drv is None:
-        print('      {0} driver not available.'.format(DriverName))
+        print('      {0} driver not available.'.format(drv))
         raise SystemExit
 
-    if CSV_to_shape:
+    if len(args.in_csv) > 1:
         '''
         This block will create a point shapefile from an input CSV file.
         '''
-        ds = CSV_to_SHP(inCSV, DriverName='MEMORY')
+        ds = CSV_to_SHP(args.in_csv, DriverName='MEMORY')
         out_ds = drv.CopyDataSource(ds, outSHP)
         out_ds = ds = None
 
-    if SHP_to_CSV:
+    elif len(args.in_shp) > 1:
 
         '''
         This block will first use any existing fields to fill out the output
@@ -92,7 +123,7 @@ if __name__ == '__main__':
         (['LAT', 'LON']) or from a 1...n numbering (['FID']).
         '''
 
-        data_source = drv.Open(inSHP, 0)                                 # 0 means read-only. 1 means writeable.
+        data_source = drv.Open(args.in_shp, 0)                                 # 0 means read-only. 1 means writeable.
         if data_source is None:
             print('      data source could not be created.')
             raise SystemExit
@@ -100,7 +131,7 @@ if __name__ == '__main__':
         layer = data_source.GetLayer()
         featureCount = layer.GetFeatureCount()
         inSR = layer.GetSpatialRef()                                            # Get spatial reference of input
-        print('Number of features in {0}: {1}'.format(os.path.basename(inSHP),featureCount))
+        print('Number of features in {0}: {1}'.format(os.path.basename(args.in_shp), featureCount))
 
         # Read shapefile fields
         layerDefinition = layer.GetLayerDefn()
@@ -147,5 +178,10 @@ if __name__ == '__main__':
         layer.ResetReading()
 
         numpy.savetxt(outCSV, csv_arr, fmt='%s', delimiter=',', header=','.join(csv_arr.dtype.names), comments='')
+
+    elif len(args.in_shp) > 1 and len(args.in_csv) > 1:
+        print("Please choose only a single input of either a CSV or shapefile.")
+        sys.exit()
+
     drv = None
-    print('Process complted in {0:3.2f} seconds.'.format(time.time()-tic))
+    print('Process completed in {0:3.2f} seconds.'.format(time.time()-tic))
