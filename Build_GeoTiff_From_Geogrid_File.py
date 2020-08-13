@@ -43,7 +43,6 @@ from pathlib import Path
 from wrfhydro_functions import (WRF_Hydro_Grid, RasterDriver, subset_ncVar)
 
 # --- Global Variables --- #
-
 out_fmt = RasterDriver                                                          # Could overwrite the output format. Default is 'GTiff'
 defaltGeogrid = 'geo_em.d01.nc'                                                 # Default input geogrid file name if not provided by user
 overwrite_output = True                                                         # Option to overwrite the output file if it exists already
@@ -143,7 +142,7 @@ if __name__ == '__main__':
     if args.out_file == all_defaults["out_file"]:
         print('Using default output location: {0}'.format(all_defaults["out_file"]))
 
-    # Input WPS Namelist
+    # Print information to screen
     print('Input WPS Geogrid or Fulldom file: {0}'.format(in_nc))
     print('Input netCDF variable name: {0}'.format(args.Variable))
     print('Output raster file: {0}'.format(args.out_file))
