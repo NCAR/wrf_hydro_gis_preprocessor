@@ -33,7 +33,7 @@ from wrfhydro_functions import WRF_Hydro_Grid
 print('Script initiated at {0}'.format(time.ctime()))
 
 # Global Variables
-defaltGeogrid = 'geo_em.d01.nc'
+defaultGeogrid = 'geo_em.d01.nc'
 
 # Script options
 buildPRJ = True                                                                 # Switch for building output Esri Projection File
@@ -47,7 +47,7 @@ if __name__ == '__main__':
     parser = ArgumentParser(description=descText, add_help=True)
     parser.add_argument("-i",
                         dest="in_nc",
-                        default='./{0}'.format(defaltGeogrid),
+                        default='./{0}'.format(defaultGeogrid),
                         help="Path to WPS geogrid (geo_em.d0*.nc) file or WRF-Hydro Fulldom_hires.nc file. default=./geo_em.d01.nc")
     parser.add_argument("-o",
                         dest="out_dir",
@@ -64,7 +64,7 @@ if __name__ == '__main__':
     # Handle path of input
     if args.in_nc == all_defaults["in_nc"]:
         print('Using default input geogrid location of: {0}'.format(all_defaults["in_nc"]))
-        in_nc = Path.cwd().joinpath(defaltGeogrid)
+        in_nc = Path.cwd().joinpath(defaultGeogrid)
     else:
         in_nc = args.in_nc
 
