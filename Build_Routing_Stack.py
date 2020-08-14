@@ -144,7 +144,7 @@ def GEOGRID_STANDALONE(inGeogrid,
                         varList2D = [],
                         in_lakes = '',
                         GW_with_Stack = True,
-                        in_GWPolys = '',
+                        in_GWPolys = None,
                         ovroughrtfac_val = 1.0,
                         retdeprtfac_val = 1.0,
                         lksatfac_val = 1000.0):
@@ -290,7 +290,7 @@ def GEOGRID_STANDALONE(inGeogrid,
     del rootgrp2
 
     # Build groundwater files
-    if GW_with_Stack:
+    if GW_with_Stack and in_GWPolys is not None:
 
         if os.path.exists(in_GWPolys):
             print('    Groundwater basin boundary polygons provided. Delineating groundwater basins from these polygons.')
