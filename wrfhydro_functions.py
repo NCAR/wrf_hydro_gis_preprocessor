@@ -94,7 +94,7 @@ basinRaster = 'GWBasins.tif'                                                    
 NoDataVal = -9999                                                               # Default NoData value for gridded variables
 walker = 3                                                                      # Number of cells to walk downstream before gaged catchment delineation
 LK_walker = 3                                                                   # Number of cells to walk downstream to get minimum lake elevation
-z_limit = 50.0                                                                  # Maximum fill depth (z-limit) between a sink and it's pour point. None or float.
+z_limit = 1000.0                                                                # Maximum fill depth (z-limit) between a sink and it's pour point. None or float.
 x_limit = None                                                                  # Maximum breach length for breaching depressions, in pixels. None or Int/Float
 lksatfac_val = 1000.0                                                           # Default LKSATFAC value (unitless coefficient)
 
@@ -1047,7 +1047,7 @@ def project_Polygons(InputVector, outProj, clipGeom=None):
         trans = True
 
     # Create in-memory output layer to store projected and/or clipped polygons
-    drv = ogr.GetDriverByName('MEM')                                         # Other options: 'ESRI Shapefile'
+    drv = ogr.GetDriverByName('memory')                                         # Other options: 'ESRI Shapefile'
     data_source = drv.CreateDataSource('')                                      # Create the data source. If in-memory, use '' or some other string as the data source name
     outLayer = data_source.CreateLayer('', outProj, ogr.wkbPolygon)             # Create the layer name. Use '' or some other string as the layer name
 
@@ -1770,7 +1770,7 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
     # Workflow options
     Full_Workflow = False                               # Use the Flow Accumulation Full Workflow tool (fewer options)
     default_Method = True                               # Fill Depressions (Planchon and Darboux)
-    fill_deps = False                                   # Option to Fill Depressions
+    fill_deps = True                                   # Option to Fill Depressions
     breach_deps = False                                 # Option to Breach Depressions
     breach_deps_LC = False                              # Option to use Breach Depressions (Least Cost)
 
