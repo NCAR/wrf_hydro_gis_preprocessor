@@ -174,6 +174,10 @@ if __name__ == '__main__':
     rootgrp2 = netCDF4.Dataset(args.out_nc, 'w', format=outNCType)
     rootgrp2, grid_mapping = create_CF_NetCDF(fine_grid, rootgrp2, projdir,
             notes=processing_notes_SM, addLatLon=latlon_vars, latArr=latArr, lonArr=lonArr)
+    globalAtts = rootgrp.__dict__                                           # Read all global attributes into a dictionary
+    for item in wrfh.Geogrid_MapVars + ['DX', 'DY']:
+        if item in globalAtts:
+            rootgrp.setncattr(item, globalAtts[item])
     rootgrp2.close()
 
     del rootgrp2, latArr, lonArr

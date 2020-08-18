@@ -50,7 +50,8 @@ os.environ["PROJ_LIB"] = internal_datadir
 
 # Provide the default groundwater basin generation method.
 # Options: ['FullDom basn_msk variable', 'FullDom LINKID local basins', 'Polygon Shapefile or Feature Class']
-defaultGWmethod = 'FullDom LINKID local basins'
+#defaultGWmethod = 'FullDom LINKID local basins'
+defaultGWmethod = 'FullDom basn_msk variable'
 GW_with_Stack = True                                                            # Switch for building default groundwater inputs with any routing stack
 
 # Processing Notes to insert into output netCDF global attributes. Provide any documentation here.
@@ -115,9 +116,6 @@ varList2D = [['CHANNELGRID', 'i4', ''],
             ['landuse', 'f4', ''],
             ['LKSATFAC', 'f4', '']]
 
-# The metadata items below will be transfered from input geogrid file to the Fulldom_hires netCDF file.
-Geogrid_MapVars = ['MAP_PROJ', 'corner_lats', 'corner_lons', 'TRUELAT1', 'TRUELAT2', 'STAND_LON', 'POLE_LAT', 'POLE_LON', 'MOAD_CEN_LAT', 'CEN_LAT']
-
 # Default name for the output routing stack zip file
 outZipDefault = 'WRF_Hydro_routing_grids.zip'                                   # Default output routing stack zip file name if not provided by user
 defaltGeogrid = 'geo_em.d01.nc'                                                 # Default input geogrid file name if not provided by user
@@ -147,7 +145,8 @@ def GEOGRID_STANDALONE(inGeogrid,
                         in_GWPolys = None,
                         ovroughrtfac_val = 1.0,
                         retdeprtfac_val = 1.0,
-                        lksatfac_val = 1000.0):
+                        lksatfac_val = 1000.0,
+                        startPts = None):
     '''
     This function will validate input parameters and attempt to run the full routing-
     stack GIS pre-processing for WRF-Hydro. The inputs will be related to the domain,
@@ -156,6 +155,7 @@ def GEOGRID_STANDALONE(inGeogrid,
     files.
     '''
 
+    global defaultGWmethod
     tic1 = time.time()
 
     # Print information provided to this function
@@ -178,23 +178,29 @@ def GEOGRID_STANDALONE(inGeogrid,
 
     # Step 1 - Georeference geogrid file
     rootgrp = netCDF4.Dataset(inGeogrid, 'r')                                   # Establish an object for reading the input NetCDF files
+    globalAtts = rootgrp.__dict__                                               # Read all global attributes into a dictionary
     if LooseVersion(netCDF4.__version__) > LooseVersion('1.4.0'):
         rootgrp.set_auto_mask(False)                                            # Change masked arrays to old default (numpy arrays always returned)
     coarse_grid = wrfh.WRF_Hydro_Grid(rootgrp)                                  # Instantiate a grid object
     fine_grid = copy.copy(coarse_grid)                                          # Copy the grid object for modification
     fine_grid.regrid(regridFactor)                                              # Regrid to the coarse grid
-    print('    Proj4: {0}'.format(coarse_grid.proj4))                           # Print Proj.4 string to screen
     print('    Created projection definition from input NetCDF GEOGRID file.')
+    print('    Proj4: {0}'.format(coarse_grid.proj4))                           # Print Proj.4 string to screen
+    print('    Coarse grid GeoTransform: {0}'.format(coarse_grid.GeoTransformStr()))        # Print affine transformation to screen.
+    print('    Coarse grid extent [Xmin, Ymin, Xmax, Ymax]: {0}'.format(coarse_grid.grid_extent()))      # Print extent to screen.
+    print('    Fine grid extent [Xmin, Ymin, Xmax, Ymax]:   {0}'.format(fine_grid.grid_extent()))      # Print extent to screen.
 
     # Build output raster from numpy array of the GEOGRID variable requested. This will be used as a template later on
     LU_INDEX = coarse_grid.numpy_to_Raster(wrfh.flip_grid(rootgrp.variables['LU_INDEX'][:]))
-    print('    GeoTransform: {0}'.format(coarse_grid.GeoTransformStr()))        # Print affine transformation to screen.
 
     # Create spatial metadata file for GEOGRID/LDASOUT grids
     out_nc1 = os.path.join(projdir, wrfh.LDASFile)
     rootgrp1 = netCDF4.Dataset(out_nc1, 'w', format=outNCType)                  # wrf_hydro_functions.outNCType)
     rootgrp1, grid_mapping = wrfh.create_CF_NetCDF(coarse_grid, rootgrp1, projdir,
             notes=processing_notes_SM) # addLatLon=True, latArr=latArr, lonArr=lonArr)
+    for item in wrfh.Geogrid_MapVars + ['DX', 'DY']:
+        if item in globalAtts:
+            rootgrp1.setncattr(item, globalAtts[item])
     rootgrp1.close()
     del rootgrp1
 
@@ -210,6 +216,12 @@ def GEOGRID_STANDALONE(inGeogrid,
         # Build latitude and longitude arrays for GEOGRID_LDASOUT spatial metadata file
         latArr = wrfh.flip_grid(rootgrp.variables['XLAT_M'][:])                 # Extract array of GEOGRID latitude values
         lonArr = wrfh.flip_grid(rootgrp.variables['XLONG_M'][:])                # Extract array of GEOGRID longitude values
+
+        # Resolve any remaining issues with masked arrays. Happens in the ArcGIS pre-processing tools for python 2.7.
+        if numpy.ma.isMA(lonArr):
+            lonArr = lonArr.data
+        if numpy.ma.isMA(latArr):
+            latArr = latArr.data
 
         # Method 1: Use GEOGRID latitude and longitude fields and resample to routing grid
         latRaster1 = coarse_grid.numpy_to_Raster(latArr)                        # Build raster out of GEOGRID latitude array
@@ -244,8 +256,7 @@ def GEOGRID_STANDALONE(inGeogrid,
     rootgrp2.geogrid_used = inGeogrid                                           # Paste path of geogrid file to the Fulldom global attributes
     rootgrp2.DX = fine_grid.DX                                                  # Add X resolution as a global attribute
     rootgrp2.DY = -fine_grid.DY                                                 # Add Y resolution as a global attribute
-    globalAtts = rootgrp.__dict__                                               # Read all global attributes into a dictionary
-    for item in Geogrid_MapVars:
+    for item in wrfh.Geogrid_MapVars:
         if item in globalAtts:
             rootgrp2.setncattr(item, globalAtts[item])
     rootgrp.close()                                                             # Close input GEOGRID file
@@ -265,7 +276,7 @@ def GEOGRID_STANDALONE(inGeogrid,
 
     # Step 4 - Hyrdo processing functions -- Whitebox
     rootgrp2, fdir, fac, channelgrid, fill, order = wrfh.WB_functions(rootgrp2, outDEM,
-            projdir, threshold, ovroughrtfac_val, retdeprtfac_val, lksatfac_val)
+            projdir, threshold, ovroughrtfac_val, retdeprtfac_val, lksatfac_val, startPts=startPts)
     wrfh.remove_file(outDEM)                                                    # Delete output DEM from disk
 
     # If the user provides forecast points as a CSV file, alter outputs accordingly
@@ -290,18 +301,20 @@ def GEOGRID_STANDALONE(inGeogrid,
     del rootgrp2
 
     # Build groundwater files
-    if GW_with_Stack and in_GWPolys is not None:
-
-        if os.path.exists(in_GWPolys):
-            print('    Groundwater basin boundary polygons provided. Delineating groundwater basins from these polygons.')
-            defaultGWmethod = 'Polygon Shapefile or Feature Class'
-
+    if GW_with_Stack:
+        if in_GWPolys is not None:
+            if os.path.exists(in_GWPolys):
+                print('    Groundwater basin boundary polygons provided. Delineating groundwater basins from these polygons.')
+                defaultGWmethod = 'Polygon Shapefile or Feature Class'
         GWBasns = wrfh.build_GW_Basin_Raster(out_nc2, projdir, defaultGWmethod, channelgrid, fdir, fine_grid, in_Polys=in_GWPolys)
         wrfh.build_GW_buckets(projdir, GWBasns, coarse_grid, Grid=True)
         GWBasns = None
+
     wrfh.remove_file(fdir)                                                      # Delete fdir from disk
     wrfh.remove_file(fac)                                                       # Delete fac from disk
     wrfh.remove_file(channelgrid)                                               # Delete channelgrid from disk
+    if routing:
+        wrfh.remove_file(os.path.join(projdir, wrfh.stream_id))
 
     # Copmress (zip) the output directory
     zipper = wrfh.zipUpFolder(projdir, out_zip, nclist)
@@ -378,7 +391,7 @@ if __name__ == '__main__':
                         dest="channel_starts",
                         type=lambda x: is_valid_file(parser, x),
                         default=None,
-                        help="Path to channel initiation points feature class [OPTIONAL]")
+                        help="Path to channel initiation points feature class. Must be 2D point type. [OPTIONAL]")
     parser.add_argument("--gw",
                         dest="gw_polys",type=lambda x: is_valid_file(parser, x),
                         default=None,
@@ -454,7 +467,8 @@ if __name__ == '__main__':
                             in_GWPolys = args.gw_polys,
                             ovroughrtfac_val = args.ovroughrtfac_val,
                             retdeprtfac_val = args.retdeprtfac_val,
-                            lksatfac_val = default_lksatfac_val)
+                            lksatfac_val = default_lksatfac_val,
+                            startPts = args.channel_starts)
         tee.close()
         del tee
     else:

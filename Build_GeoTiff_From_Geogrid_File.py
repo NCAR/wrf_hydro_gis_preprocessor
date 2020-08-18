@@ -84,11 +84,8 @@ def build_geogrid_raster(in_nc, Variable, OutGTiff, out_Grid_fmt=out_fmt):
     print('    Size of array being sent to raster: {0}'.format(array.shape))
 
     # Export numpy array to raster (up to 3D).
-    OutRaster = grid_obj.numpy_to_Raster(array, nband=array.shape[0])
+    OutRaster = grid_obj.numpy_to_Raster(array)
     print('    Bands in output raster: {0}'.format(OutRaster.RasterCount))
-
-    # Build output rasters from numpy array of the GEOGRID variables requested
-    OutRaster = grid_obj.numpy_to_Raster(array, nband=array.shape[0])
     rootgrp.close()
     del grid_obj, rootgrp, array
 
