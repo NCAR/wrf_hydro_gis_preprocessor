@@ -13,27 +13,28 @@
 # Licence:     <your licence>
 # *=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
 
+descText = "This tool takes an input raster (most likely produced using the ExportGrid tool)" \
+           " and uses that grid to produce latitude and longitude ESRI GRID rasters."
+
 # Import Modules
 
 # Import Python Core Modules
 import os
+import sys
 import time
 
 # Import additional modules
 import gdal
 import osr
+from argparse import ArgumentParser
 
 # Import function library into namespace. Must exist in same directory as this script.
-#import wrfhydro_functions as wrfh                                               # Function script packaged with this toolbox
+# Import wrfhydro_functions as wrfh, Function script packaged with this toolbox
 from wrfhydro_functions import (get_projection_from_raster, wgs84_proj4, getxy,
     ReprojectCoords, numpy_to_Raster)
 print('Script initiated at {0}'.format(time.ctime()))
 
 # Global Variables
-
-# Input and output files and directories
-inRaster = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Inputs\TOPOGRAPHY_HUGEBACK.tif'
-out_dir = r'C:\Users\ksampson\Desktop\WRF_Hydro_GIS_Preprocessor_FOSS\Outputs'
 
 # Script options
 RasterDriver = 'GTiff'
@@ -42,23 +43,48 @@ wgs84_proj4 = '+proj=longlat +datum=WGS84 +no_defs'
 # Main Codeblock
 if __name__ == '__main__':
     tic = time.time()
+    print('Script initiated at {0}'.format(time.ctime()))
 
-    outLat = os.path.join(out_dir, 'LATITUDE.tif')
-    outLon = os.path.join(out_dir, 'LONGITUDE.tif')
+    # Setup the input arguments
+    parser = ArgumentParser(description=descText, add_help=True)
+    parser.add_argument("-i",
+                        dest="in_raster",
+                        default='',
+                        help="Path to input raster.")
+    parser.add_argument("-o",
+                        dest="out_dir",
+                        default='',
+                        help="Output directory.")
+
+    # If no arguments are supplied, print help message
+    if len(sys.argv) == 1:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
+    args = parser.parse_args()
+    all_defaults = {key: parser.get_default(key) for key in vars(args)}
+
+    if args.in_raster == all_defaults["in_raster"]:
+        print('Using input raster location of: {0}'.format(all_defaults["in_raster"]))
+
+    if args.out_dir == all_defaults["out_dir"]:
+        print('Using output location of: {0}'.format(all_defaults["out_dir"]))
+
+    outLat = os.path.join(args.out_dir, 'LATITUDE.tif')
+    outLon = os.path.join(args.out_dir, 'LONGITUDE.tif')
 
     # Open (read-only) input raster
-    in_raster = gdal.Open(inRaster, 0)                                          # Open with read-only mode
+    in_raster = gdal.Open(args.in_raster, 0)                                          # Open with read-only mode
 
     # Gather information from input raster projection
     proj = get_projection_from_raster(in_raster)
-    x00, DX, xskew, y00, yskew, DY  = in_raster.GetGeoTransform()
+    x00, DX, xskew, y00, yskew, DY = in_raster.GetGeoTransform()
     del xskew, yskew
 
     print('  Deriving geocentric coordinates on routing grid from direct transformation geogrid coordinates.')
     # Note that this might not be the same method used in the main pre-processing script
     # because a geogrid file is not required here as input.
     wgs84_proj = osr.SpatialReference()                                 # Build empty spatial reference object
-    wgs84_proj.ImportFromProj4(wgs84_proj4)                        # Imprort from proj4 to avoid EPSG errors (4326)
+    wgs84_proj.ImportFromProj4(wgs84_proj4)                        # Import from proj4 to avoid EPSG errors (4326)
     xmap, ymap = getxy(in_raster)                                          # Get x and y coordinates as numpy array
     in_raster = None
     lonArr2, latArr2 = ReprojectCoords(xmap, ymap, proj, wgs84_proj)  # Transform coordinate arrays
@@ -91,4 +117,4 @@ if __name__ == '__main__':
     ##            target_ds = gdal.GetDriverByName(RasterDriver).CreateCopy(OutGTiff, InRaster)
     ##            target_ds = None
     ##    del OutGTiff, InRaster, xmap, ymap
-    print('Process complted in {0:3.2f} seconds.'.format(time.time()-tic))
+    print('Process completed in {0:3.2f} seconds.'.format(time.time()-tic))
