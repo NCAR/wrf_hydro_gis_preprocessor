@@ -1557,7 +1557,7 @@ def build_GW_Basin_Raster(in_nc, projdir, in_method, strm, fdir, grid_obj, in_Po
 
         # Convert from polygon features to raster object.
         GWBasns = FeatToRaster(Poly_FC, strm, basinID, gdal.GDT_Int32, NoData=NoDataVal)
-        ogr.GetDriverByName(VectorDriver).DeleteDataSource(Poly_FC)             # Delete temporary shapefile
+        #ogr.GetDriverByName(VectorDriver).DeleteDataSource(Poly_FC)             # Delete temporary shapefile
 
     print('Finished building fine-grid groundwater basin grids in {0: 3.2f} seconds'.format(time.time()-tic1))
     return GWBasns
