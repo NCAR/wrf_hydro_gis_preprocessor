@@ -1560,7 +1560,7 @@ def build_GW_Basin_Raster(in_nc, projdir, in_method, strm, fdir, grid_obj, in_Po
 
         # Convert from polygon features to raster object.
         GWBasns = FeatToRaster(Poly_FC, strm, basinID, gdal.GDT_Int32, NoData=NoDataVal)
-        #ogr.GetDriverByName(VectorDriver).DeleteDataSource(Poly_FC)             # Delete temporary shapefile
+        ogr.GetDriverByName(VectorDriver).DeleteDataSource(Poly_FC)             # Delete temporary shapefile
 
     print('Finished building fine-grid groundwater basin grids in {0: 3.2f} seconds'.format(time.time()-tic1))
     return GWBasns
@@ -1682,6 +1682,8 @@ def build_GW_buckets(out_dir, GWBasns, grid_obj, Grid=True, saveRaster=False):
 
     tic1 = time.time()
     print('Beginning to build coarse-grid groundwater basins and parameters')
+
+    print('    Numpy data type of input array: {0}'.format(GWBasns.dtype))
 
     # Read basin information from the array
     GWBasns_arr = BandReadAsArray(GWBasns.GetRasterBand(1))                     # Read input raster into array
