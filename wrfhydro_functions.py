@@ -2372,7 +2372,7 @@ def Routing_Table(projdir, rootgrp, grid_obj, fdir, strm, Elev, Strahler, gages=
 
     # Read the link IDs as an array from the output file
     strm_link_arr, ndv = return_raster_array(stream_id_file)
-    if numpy.unique(strm_link_arr).shape[0] > 32768 or strm_link_arr[strm_link_arr<0].shape > 0:
+    if numpy.unique(strm_link_arr).shape[0] > 32768 or strm_link_arr[strm_link_arr<0].shape[0] > 0:
         print('        Warning: Number of unique IDs exceeds limit of 16-bit unsigned integer type. ' + \
                 'Not all reaches may be converted to stream vectors. Check output carefully.')
     rootgrp.variables['LINKID'][:] = strm_link_arr
