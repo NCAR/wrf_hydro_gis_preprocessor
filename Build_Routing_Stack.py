@@ -29,6 +29,7 @@ import copy
 from distutils.version import LooseVersion
 import argparse
 from argparse import ArgumentParser
+import platform                                                                 # Added 8/20/2020 to detect OS
 
 # Import Additional Modules
 import osr
@@ -43,7 +44,10 @@ import wrfhydro_functions as wrfh                                               
 
 # Add Proj directory to path
 conda_env_path = os.path.join(os.path.dirname(sys.executable))
-internal_datadir = os.path.join(conda_env_path, "Library", "share", "proj")
+if platform.system() == 'Windows':
+    internal_datadir = os.path.join(conda_env_path, "Library", "share", "proj")
+elif platform.system() == 'Linux':
+    internal_datadir = os.path.join(os.path.dirname(conda_env_path), "share", "proj")
 os.environ["PROJ_LIB"] = internal_datadir
 
 # --- Global Variables --- #
