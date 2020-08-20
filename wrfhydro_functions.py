@@ -528,6 +528,9 @@ class WRF_Hydro_Grid:
 
             gdaltype = gdal_array.NumericTypeCodeToGDALTypeCode(in_arr.dtype)
             print('    GDAL Data type derived from input array: {0} ({1})'.format(gdaltype, in_arr.dtype))
+            if not gdaltype:
+                print('    The input numpy array type does not have a compatible GDAL data type. Assuming int32.')
+                gdaltype = 5                                                    # Int32
             DataSet = driver.Create('', in_arr.shape[-1], in_arr.shape[-2], nband, gdaltype)
             DataSet.SetProjection(self.WKT)
             DataSet.SetGeoTransform(self.GeoTransform())
