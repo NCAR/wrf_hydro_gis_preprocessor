@@ -1683,10 +1683,9 @@ def build_GW_buckets(out_dir, GWBasns, grid_obj, Grid=True, saveRaster=False):
     tic1 = time.time()
     print('Beginning to build coarse-grid groundwater basins and parameters')
 
-    print('    Numpy data type of input array: {0}'.format(GWBasns.dtype))
-
     # Read basin information from the array
     GWBasns_arr = BandReadAsArray(GWBasns.GetRasterBand(1))                     # Read input raster into array
+    print('    Numpy data type of input array: {0}'.format(GWBasns_arr.dtype))
     ndv = GWBasns.GetRasterBand(1).GetNoDataValue()                             # Obtain nodata value
     UniqueVals = numpy.unique(GWBasns_arr[GWBasns_arr!=ndv])                    # Array to store the basin ID values in the fine-grid groundwater basins
     UniqueVals = UniqueVals[UniqueVals>=0]                                      # Remove NoData, removes potential noData values (-2147483647, -9999)
