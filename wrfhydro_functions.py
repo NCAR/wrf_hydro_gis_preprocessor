@@ -631,10 +631,12 @@ class WRF_Hydro_Grid:
         print('    The High-resolution dataset will be {0}m'.format(str(self.DX)))
 
         # Use Warp command
+        outDtype = in_raster.GetRasterBand(1).DataType
         OutRaster = gdal.Warp('', in_raster, format='MEM', xRes=self.DX, yRes=self.DY,
                             outputBounds=te, outputBoundsSRS=self.WKT,
                             resampleAlg=resampling, dstSRS=self.WKT,
-                            errorThreshold=0.0)
+                            errorThreshold=0.0,
+                            outputType=outDtype)
         # Other options to gdal.Warp: dstSRS='EPSG:32610', dstNodata=1, srcNodata=1, outputType=gdal.GDT_Int16
         #   transformerOptions=[ 'SRC_METHOD=NO_GEOTRANSFORM', 'DST_METHOD=NO_GEOTRANSFORM']
         #   width=Xsize_out, height=Ysize_out, targetAlignedPixels=True
