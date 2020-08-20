@@ -527,6 +527,7 @@ class WRF_Hydro_Grid:
                 print('    {0} driver not available.'.format('Memory'))
 
             gdaltype = gdal_array.NumericTypeCodeToGDALTypeCode(in_arr.dtype)
+            print('    GDAL Data type derived from input array: {0} ({1})'.format(gdaltype, in_arr.dtype))
             DataSet = driver.Create('', in_arr.shape[-1], in_arr.shape[-2], nband, gdaltype)
             DataSet.SetProjection(self.WKT)
             DataSet.SetGeoTransform(self.GeoTransform())
@@ -1697,7 +1698,7 @@ def build_GW_buckets(out_dir, GWBasns, grid_obj, Grid=True, saveRaster=False):
     ndv = band.GetNoDataValue()                                                 # Obtain nodata value
     GWBasns_arr2[GWBasns_arr2==ndv] = NoDataVal                                 # Ensure all non-basin areas are NoData
     UniqueVals2 = numpy.unique(GWBasns_arr2[:])                                 # Get the unique values, including nodata
-    GW_BUCKS = band = ndv = None                                                      # Destroy the resampled-to-coarse-grid groundwater basin raster
+    GW_BUCKS = band = ndv = None                                                # Destroy the resampled-to-coarse-grid groundwater basin raster
     print('    Found {0} basins (potentially including nodata values) in the file after resampling to the coarse grid.'.format(UniqueVals2.shape[0]))
 
     '''Because we resampled to the coarse grid, we lost some basins. Thus, we need to
@@ -1713,7 +1714,7 @@ def build_GW_buckets(out_dir, GWBasns, grid_obj, Grid=True, saveRaster=False):
     to_values = numpy.arange(UniqueVals2.size)                                  # 0..n values to be substituted, 0 in place of NoDataVal
     GWBasns_arr3 = to_values[idx]                                               # Same as to_values[sort_idx][idx]
     if numpy.where(UniqueVals2==NoDataVal)[0].shape[0] > 0:
-        new_ndv = int(to_values[numpy.where(UniqueVals2==NoDataVal)[0]][0])         # Obtain the newly-assigned nodatavalue
+        new_ndv = int(to_values[numpy.where(UniqueVals2==NoDataVal)[0]][0])     # Obtain the newly-assigned nodatavalue
     else:
         new_ndv = NoDataVal
         GWBasns_arr3+=1                                                         # Add one so that the basin IDs will be 1...n rather than 0...n when there are no nodata values in the grid
