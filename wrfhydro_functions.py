@@ -32,8 +32,9 @@ import glob
 import csv
 import zipfile
 from zipfile import ZipFile, ZipInfo
-from collections import defaultdict                                             # Added 09/03/2015Needed for topological sorting algorthm
-from itertools import takewhile, count                                          # Added 09/03/2015Needed for topological sorting algorthm
+from collections import defaultdict                                             # Added 09/03/2015 Needed for topological sorting algorthm
+from itertools import takewhile, count                                          # Added 09/03/2015 Needed for topological sorting algorthm
+import platform                                                                 # Added 8/20/2020 to detect OS
 
 # Change any environment variables here
 #os.environ["OGR_WKT_PRECISION"] = "5"                                           # Change the precision of coordinates
@@ -57,7 +58,10 @@ gdal.PushErrorHandler('CPLQuietErrorHandler')
 
 # Add Proj directory to path
 conda_env_path = os.path.join(os.path.dirname(sys.executable))
-internal_datadir = os.path.join(conda_env_path, "Library", "share", "proj")
+if platform.system() == 'Windows':
+    internal_datadir = os.path.join(conda_env_path, "Library", "share", "proj")
+elif platform.system() == 'Linux':
+    internal_datadir = os.path.join(conda_env_path, "share", "proj")
 os.environ["PROJ_LIB"] = internal_datadir
 
 # --- End Import Modules --- #
