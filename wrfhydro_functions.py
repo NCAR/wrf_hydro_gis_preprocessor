@@ -1700,9 +1700,12 @@ def build_GW_buckets(out_dir, GWBasns, grid_obj, Grid=True, saveRaster=False):
 
     # Re-assign basin IDs to 1...n because sometimes the basins get lost when converting to coarse grid
     band = GW_BUCKS.GetRasterBand(1)
+    print('    GDAL data type of GW_BUCKS band: {0}'.format(band.DataType))
     GWBasns_arr2 = BandReadAsArray(band)                                        # Create array from raster
+    print('    GDAL data type of GWBasns_arr array: {0}'.format(GWBasns_arr2.dtype))
     ndv = band.GetNoDataValue()                                                 # Obtain nodata value
     GWBasns_arr2[GWBasns_arr2==ndv] = NoDataVal                                 # Ensure all non-basin areas are NoData
+    print('    GDAL data type of GWBasns_arr array (2): {0}'.format(GWBasns_arr2.dtype))
     UniqueVals2 = numpy.unique(GWBasns_arr2[:])                                 # Get the unique values, including nodata
     GW_BUCKS = band = ndv = None                                                # Destroy the resampled-to-coarse-grid groundwater basin raster
     print('    Found {0} basins (potentially including nodata values) in the file after resampling to the coarse grid.'.format(UniqueVals2.shape[0]))
