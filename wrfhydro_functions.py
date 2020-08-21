@@ -1717,9 +1717,11 @@ def build_GW_buckets(out_dir, GWBasns, grid_obj, Grid=True, saveRaster=False):
     # Fast replace loop from https://stackoverflow.com/questions/3403973/fast-replacement-of-values-in-a-numpy-array
     # This method ensures that any nodata values are issued a 0 index in sort_idx
     sort_idx = numpy.argsort(UniqueVals2)                                       # Index of each unique value, 0-based
-    sort_idx = sort_idx.astype(UniqueVals2.dtype)                               # Added because dtype was changing at the argsort step from int32 to int64 on linux!
     print('    numpy data type of sort_idx array: {0}'.format(sort_idx.dtype))
-    idx = numpy.searchsorted(UniqueVals2, GWBasns_arr2, sorter=sort_idx)        # 2D array of index values against GWBasns_arr2
+    # Added .astype on each input because dtype was changing at the argsort step from int32 to int64 on linux!
+    idx = numpy.searchsorted(UniqueVals2.astype(UniqueVals2.dtype),
+                                GWBasns_arr2.astype(GWBasns_arr2.dtype),
+                                sorter=sort_idx.astype(UniqueVals2.dtype))       # 2D array of index values against GWBasns_arr2
     print('    numpy data type of idx array: {0}'.format(idx.dtype))
     del GWBasns_arr2, sort_idx                                                  # Free up memory
 
