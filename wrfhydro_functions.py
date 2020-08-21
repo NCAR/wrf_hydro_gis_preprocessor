@@ -1702,11 +1702,12 @@ def build_GW_buckets(out_dir, GWBasns, grid_obj, Grid=True, saveRaster=False):
     band = GW_BUCKS.GetRasterBand(1)
     print('    GDAL data type of GW_BUCKS band: {0}'.format(band.DataType))
     GWBasns_arr2 = BandReadAsArray(band)                                        # Create array from raster
-    print('    GDAL data type of GWBasns_arr array: {0}'.format(GWBasns_arr2.dtype))
+    print('    numpy data type of GWBasns_arr array: {0}'.format(GWBasns_arr2.dtype))
     ndv = band.GetNoDataValue()                                                 # Obtain nodata value
     GWBasns_arr2[GWBasns_arr2==ndv] = NoDataVal                                 # Ensure all non-basin areas are NoData
-    print('    GDAL data type of GWBasns_arr array (2): {0}'.format(GWBasns_arr2.dtype))
+    print('    numpy data type of GWBasns_arr array (2): {0}'.format(GWBasns_arr2.dtype))
     UniqueVals2 = numpy.unique(GWBasns_arr2[:])                                 # Get the unique values, including nodata
+    print('    numpy data type of UniqueVals2 array: {0}'.format(UniqueVals2.dtype))
     GW_BUCKS = band = ndv = None                                                # Destroy the resampled-to-coarse-grid groundwater basin raster
     print('    Found {0} basins (potentially including nodata values) in the file after resampling to the coarse grid.'.format(UniqueVals2.shape[0]))
 
@@ -1716,22 +1717,29 @@ def build_GW_buckets(out_dir, GWBasns, grid_obj, Grid=True, saveRaster=False):
     # Fast replace loop from https://stackoverflow.com/questions/3403973/fast-replacement-of-values-in-a-numpy-array
     # This method ensures that any nodata values are issued a 0 index in sort_idx
     sort_idx = numpy.argsort(UniqueVals2)                                       # Index of each unique value, 0-based
+    print('    numpy data type of sort_idx array: {0}'.format(sort_idx.dtype))
     idx = numpy.searchsorted(UniqueVals2, GWBasns_arr2, sorter=sort_idx)        # 2D array of index values against GWBasns_arr2
+    print('    numpy data type of idx array: {0}'.format(idx.dtype))
     del GWBasns_arr2, sort_idx                                                  # Free up memory
 
     # This method requires the nodata value to be issued a 0 index in sort_idx and idx
     to_values = numpy.arange(UniqueVals2.size)                                  # 0..n values to be substituted, 0 in place of NoDataVal
+    print('    numpy data type of to_values array: {0}'.format(to_values.dtype))
     GWBasns_arr3 = to_values[idx]                                               # Same as to_values[sort_idx][idx]
+    print('    numpy data type of GWBasns_arr3 array (1): {0}'.format(GWBasns_arr3.dtype))
     if numpy.where(UniqueVals2==NoDataVal)[0].shape[0] > 0:
         new_ndv = int(to_values[numpy.where(UniqueVals2==NoDataVal)[0]][0])     # Obtain the newly-assigned nodatavalue
     else:
         new_ndv = NoDataVal
         GWBasns_arr3+=1                                                         # Add one so that the basin IDs will be 1...n rather than 0...n when there are no nodata values in the grid
+    print('    numpy data type of GWBasns_arr3 array (2) : {0}'.format(GWBasns_arr3.dtype))
     GWBasns_arr3[GWBasns_arr3==new_ndv] = NoDataVal
+    print('    numpy data type of GWBasns_arr3 array (3) : {0}'.format(GWBasns_arr3.dtype))
     del UniqueVals2
 
     # Build rasters and arrays to create the NC or ASCII outputs
     GW_BUCKS = grid_obj.numpy_to_Raster(GWBasns_arr3)
+    print('    GDAL data type of GW_BUCKS band: {0}'.format(GW_BUCKS.GetRasterBand(1).DataType))
     del GWBasns_arr3, idx, to_values, new_ndv
 
     # If requested, create 2D gridded bucket parameter table
