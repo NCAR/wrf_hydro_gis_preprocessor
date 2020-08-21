@@ -1724,6 +1724,7 @@ def build_GW_buckets(out_dir, GWBasns, grid_obj, Grid=True, saveRaster=False):
     del GWBasns_arr2, sort_idx                                                  # Free up memory
 
     # This method requires the nodata value to be issued a 0 index in sort_idx and idx
+    print('    Size of UniqueVals2 array: {0}'.format(UniqueVals2.size))
     to_values = numpy.arange(UniqueVals2.size)                                  # 0..n values to be substituted, 0 in place of NoDataVal
     print('    numpy data type of to_values array: {0}'.format(to_values.dtype))
     GWBasns_arr3 = to_values[idx]                                               # Same as to_values[sort_idx][idx]
