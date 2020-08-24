@@ -50,10 +50,12 @@ if __name__ == '__main__':
     parser.add_argument("-i",
                         dest="in_raster",
                         default='',
+                        required=True,
                         help="Path to input raster.")
     parser.add_argument("-o",
                         dest="out_dir",
                         default='',
+                        required=True,
                         help="Output directory.")
 
     # If no arguments are supplied, print help message

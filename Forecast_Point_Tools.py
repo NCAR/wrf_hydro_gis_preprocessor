@@ -71,14 +71,17 @@ if __name__ == '__main__':
     parser.add_argument("-i",
                         dest="in_csv",
                         default='',
+                        required=True,
                         help="Path to gauges csv.")
     parser.add_argument("-s",
                         dest="in_shp",
                         default='',
+                        required=True,
                         help="Path to forecast points shapefile.")
     parser.add_argument("-o",
                         dest="out_dir",
                         default='',
+                        required=True,
                         help="Output directory.")
 
     # If no arguments are supplied, print help message

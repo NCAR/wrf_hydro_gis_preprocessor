@@ -158,10 +158,12 @@ if __name__ == '__main__':
     parser.add_argument("-i",
                         dest="in_zip",
                         default='',
+                        required=True,
                         help="Path to WRF Hydro routing grids zip file.")
     parser.add_argument("-o",
                         dest="out_folder",
                         default='',
+                        required=True,
                         help="Path to output folder.")
 
     # If no arguments are supplied, print help message
