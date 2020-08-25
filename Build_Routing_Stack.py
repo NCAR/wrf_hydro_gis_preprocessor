@@ -54,8 +54,8 @@ os.environ["PROJ_LIB"] = internal_datadir
 
 # Provide the default groundwater basin generation method.
 # Options: ['FullDom basn_msk variable', 'FullDom LINKID local basins', 'Polygon Shapefile or Feature Class']
-#defaultGWmethod = 'FullDom LINKID local basins'
-defaultGWmethod = 'FullDom basn_msk variable'
+defaultGWmethod = 'FullDom LINKID local basins'
+#defaultGWmethod = 'FullDom basn_msk variable'
 GW_with_Stack = True                                                            # Switch for building default groundwater inputs with any routing stack
 
 # Processing Notes to insert into output netCDF global attributes. Provide any documentation here.
