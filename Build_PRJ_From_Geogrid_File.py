@@ -47,11 +47,12 @@ if __name__ == '__main__':
     parser = ArgumentParser(description=descText, add_help=True)
     parser.add_argument("-i",
                         dest="in_nc",
-                        default='./{0}'.format(defaultGeogrid),
-                        help="Path to WPS geogrid (geo_em.d0*.nc) file or WRF-Hydro Fulldom_hires.nc file. default=./geo_em.d01.nc")
+                        required=True,
+                        help="Path to WPS geogrid (geo_em.d0*.nc) file or WRF-Hydro Fulldom_hires.nc file.")
     parser.add_argument("-o",
                         dest="out_dir",
                         default='',
+                        required=True,
                         help="Output directory.")
 
     # If no arguments are supplied, print help message
@@ -64,9 +65,6 @@ if __name__ == '__main__':
     # Handle path of input
     if args.in_nc == all_defaults["in_nc"]:
         print('Using default input geogrid location of: {0}'.format(all_defaults["in_nc"]))
-        in_nc = Path.cwd().joinpath(defaultGeogrid)
-    else:
-        in_nc = args.in_nc
 
     if args.out_dir == all_defaults["out_dir"]:
         print('Using default output location: {0}'.format(all_defaults["out_file"]))
@@ -74,7 +72,7 @@ if __name__ == '__main__':
     # Input and output files and directories
     outPRJ = os.path.join(args.out_dir, os.path.basename(args.in_nc).replace('.nc', '.prj'))
 
-    print('Input WPS Geogrid or Fulldom file: {0}'.format(in_nc))
+    print('Input WPS Geogrid or Fulldom file: {0}'.format(args.in_nc))
     print('Output prj file: {0}'.format(outPRJ))
 
     rootgrp = netCDF4.Dataset(args.in_nc, 'r')                                   # Establish an object for reading the input NetCDF file

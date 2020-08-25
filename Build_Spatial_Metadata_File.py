@@ -61,12 +61,12 @@ if __name__ == '__main__':
     parser = ArgumentParser(description=descText, add_help=True)
     parser.add_argument("-i",
                         dest="in_nc",
-                        default='./{0}'.format(defaultGeogrid),
-                        help="Path to WPS geogrid (geo_em.d0*.nc) file or WRF-Hydro Fulldom_hires.nc file."
-                             " default=./geo_em.d01.nc")
+                        required=True,
+                        help="Path to WPS geogrid (geo_em.d0*.nc) file or WRF-Hydro Fulldom_hires.nc file.")
     parser.add_argument("-o",
                         dest="out_nc",
                         default='',
+                        required=True,
                         help="Output netCDF file.")
     parser.add_argument("-f",
                         dest="output_format",
@@ -74,6 +74,7 @@ if __name__ == '__main__':
                         help="Output format. Options: LDASOUT or RTOUT")
     parser.add_argument("-r",
                         dest="regrid_factor",
+                        type=int,
                         default=4,
                         help="Regridding factor of data.")
 
@@ -87,9 +88,6 @@ if __name__ == '__main__':
     # Handle path of input
     if args.in_nc == all_defaults["in_nc"]:
         print('Using default input geogrid location of: {0}'.format(all_defaults["in_nc"]))
-        in_nc = Path.cwd().joinpath(defaultGeogrid)
-    else:
-        in_nc = args.in_nc
 
     if args.out_nc == all_defaults["out_nc"]:
         print('Using output location of: {0}'.format(all_defaults["out_nc"]))
@@ -115,7 +113,7 @@ if __name__ == '__main__':
     # print('Output netCDF File: {0}'.format(out_nc))
 
     # Georeference geogrid file
-    rootgrp = netCDF4.Dataset(in_nc, 'r')                                   # Establish an object for reading the input NetCDF file
+    rootgrp = netCDF4.Dataset(args.in_nc, 'r')                                   # Establish an object for reading the input NetCDF file
     if LooseVersion(netCDF4.__version__) > LooseVersion('1.4.0'):
         rootgrp.set_auto_mask(False)                                            # Change masked arrays to old default (numpy arrays always returned)
     coarse_grid = WRF_Hydro_Grid(rootgrp)                                  # Instantiate a grid object

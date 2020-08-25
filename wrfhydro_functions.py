@@ -2890,6 +2890,35 @@ def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, 
     print('    Lake parameter table created without error in {0: 3.2f} seconds.'.format(time.time()-tic1))
     return rootgrp
 
+
+def getxy(ds):
+    """
+    This function will use the affine transformation (GeoTransform) to produce an
+    array of X and Y 1D arrays. Note that the GDAL affine transformation provides
+    the grid cell coordinates from the upper left corner. This is typical in GIS
+    applications. However, WRF uses a south_north ordering, where the arrays are
+    written from the bottom to the top.
+    The input raster object will be used as a template for the output rasters.
+    """
+    print('    Starting Process: Building to XMap/YMap')
+    nrows = ds.RasterYSize
+    ncols = ds.RasterXSize
+    xMin, DX, xskew, yMax, yskew, DY = ds.GetGeoTransform()
+    del ds, xskew, yskew
+    # Build i,j arrays
+    j = numpy.arange(nrows) + float(0.5)                                        # Add 0.5 to estimate coordinate of grid cell centers
+    i = numpy.arange(ncols) + float(0.5)                                        # Add 0.5 to estimate coordinate of grid cell centers
+    # col, row to x, y   From https://www.perrygeo.com/python-affine-transforms.html
+    x = (i * DX) + xMin
+    y = (j * DY) + yMax
+    del i, j, DX, DY, xMin, yMax
+    # Create 2D arrays from 1D
+    xmap = numpy.repeat(x[numpy.newaxis, :], y.shape, 0)
+    ymap = numpy.repeat(y[:, numpy.newaxis], x.shape, 1)
+    del x, y
+    print('    Conversion of input raster to XMap/YMap completed without error.')
+    return xmap, ymap
+
 # --- End Functions --- #
 
 # --- Main Codeblock --- #
