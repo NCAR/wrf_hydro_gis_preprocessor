@@ -2354,7 +2354,7 @@ def build_RouteLink(RoutingNC, order, From_To, NodeElev, NodesLL, NodesXY, Lengt
     BtmWdths[:] = BtmWdth
     Times[:] = 0
     Kcs[:] = Kc
-    LakeDis[:] = NoDataVal                                                      # Fill with default nodata value
+    #LakeDis[:] = NoDataVal                                                      # Fill with default nodata value. Disabled to keep all values uninitialized
 
     # Added 10/10/2017 by KMS to include user-supplied gages in reach-based routing files
     if gageDict is not None:
@@ -2455,6 +2455,8 @@ def Routing_Table(projdir, rootgrp, grid_obj, fdir, strm, Elev, Strahler, gages=
     if numpy.unique(strm_link_arr).shape[0] > 32768 or strm_link_arr[strm_link_arr<0].shape[0] > 0:
         print('        Warning: Number of unique IDs exceeds limit of 16-bit unsigned integer type. ' + \
                 'Not all reaches may be converted to stream vectors. Check output carefully.')
+    strm_link_arr[strm_link_arr==ndv] = NoDataVal
+    strm_link_arr[strm_link_arr<1] = NoDataVal
     rootgrp.variables['LINKID'][:] = strm_link_arr
 
     gage_linkID = {}
