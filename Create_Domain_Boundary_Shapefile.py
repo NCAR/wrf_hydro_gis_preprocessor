@@ -35,10 +35,8 @@ from wrfhydro_functions import WRF_Hydro_Grid
 print('Script initiated at {0}'.format(time.ctime()))
 
 # --- Global Variables --- #
-defaultGeogrid = 'geo_em.d01.nc'
-
-# Script options
 outDriverName = 'ESRI Shapefile'                                                # Output vector file format (OGR driver name)
+outSHPDefault = 'domain_boundary.shp'                                           # Default output filename if none is provided
 
 # Main Codeblock
 if __name__ == '__main__':
@@ -53,7 +51,7 @@ if __name__ == '__main__':
                         help="Path to WPS geogrid (geo_em.d0*.nc) file or WRF-Hydro Fulldom_hires.nc file.")
     parser.add_argument("-o",
                         dest="out_dir",
-                        default='',
+                        default='./{0}'.format(outSHPDefault),
                         required=True,
                         help="Output directory.")
 
@@ -64,12 +62,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
     all_defaults = {key: parser.get_default(key) for key in vars(args)}
 
-    # Handle path of input
-    if args.in_nc == all_defaults["in_nc"]:
-        print('Using default input geogrid location of: {0}'.format(all_defaults["in_nc"]))
-
+    # Handle output path
     if args.out_dir == all_defaults["out_dir"]:
-        print('Using output location of: {0}'.format(all_defaults["out_dir"]))
+        print('Using default output location of: {0}'.format(all_defaults["out_dir"]))
 
     # Input and output files and directories
     outSHP = os.path.join(args.out_dir, os.path.basename(args.in_nc).replace('.nc', '_boundary.shp'))

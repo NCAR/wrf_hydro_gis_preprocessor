@@ -74,9 +74,6 @@ default_lksatfac_val = wrfh.lksatfac_val
 # Script options
 runGEOGRID_STANDALONE = True                                                    # Switch for testing the GEOGRID STANDALONE Pre-processing workflow
 
-# Default temporary output file names
-mosprj_name = 'mosaicprj.tif'                                                   # Default regridded input DEM if saved to disk
-
 # Methods test switches
 coordMethod1 = True                                                             # Interpolate GEOGRID latitude and longitude coordinate arrays
 coordMethod2 = False                                                            # Transform coordinate pairs at each grid cell from projected to geocentric
@@ -119,6 +116,9 @@ varList2D = [['CHANNELGRID', 'i4', ''],
             ['LAKEGRID', 'i4', ''],
             ['landuse', 'f4', ''],
             ['LKSATFAC', 'f4', '']]
+
+# Default temporary output file names
+mosprj_name = 'mosaicprj.tif'                                                   # Default regridded input DEM if saved to disk
 
 # Default name for the output routing stack zip file
 outZipDefault = 'WRF_Hydro_routing_grids.zip'                                   # Default output routing stack zip file name if not provided by user
@@ -337,14 +337,14 @@ if __name__ == '__main__':
     # Setup the input arguments
     parser = ArgumentParser(description=descText, add_help=True)
     parser.add_argument("-i",
-                        dest="inGeogrid",
+                        dest="in_Geogrid",
                         type=lambda x: is_valid_file(parser, x),
                         required=True,
                         help="Path to WPS geogrid (geo_em.d0*.nc) file [REQUIRED]")
     parser.add_argument("--CSV",
-                        dest="inCSV",
+                        dest="in_CSV",
                         type=lambda x: is_valid_file(parser, x),
-                        default='',
+                        default=None,
                         help="Path to input forecast point CSV file [OPTIONAL]")
     parser.add_argument("-b",
                         dest="basin_mask",
@@ -359,7 +359,7 @@ if __name__ == '__main__':
     parser.add_argument("-l",
                         dest="in_reservoirs",
                         type=lambda x: is_valid_file(parser, x),
-                        default='',
+                        default=None,
                         help="Path to reservoirs shapefile or feature class [OPTIONAL]. If -l is TRUE, this is required.")
     parser.add_argument("-d",
                         dest="inDEM",
@@ -380,7 +380,7 @@ if __name__ == '__main__':
     parser.add_argument("-o",
                         dest="out_zip_file",
                         default='./{0}'.format(outZipDefault),
-                        help="Output routing stack ZIP file [REQUIRED]")
+                        help="Output routing stack ZIP file")
     parser.add_argument("-O",
                         dest="ovroughrtfac_val",
                         type=float,
@@ -425,10 +425,16 @@ if __name__ == '__main__':
     if args.retdeprtfac_val == all_defaults["retdeprtfac_val"]:
         print('    Using default RETDEPRTFAC parameter value: {0}'.format(all_defaults["retdeprtfac_val"]))
 
+    # This block allows us to continue to check for a valid file while allowing the script later to avoid a NoneType error.
+    if args.in_reservoirs == None:
+        args.in_reservoirs = ''
+    if args.in_CSV == None:
+        args.in_CSV = ''
+
     # Print information to screen
     print('  Values that will be used in building this routing stack:')
-    print('    Input WPS Geogrid file: {0}'.format(args.inGeogrid))
-    print('    Forecast Point CSV file: {0}'.format(args.inCSV))
+    print('    Input WPS Geogrid file: {0}'.format(args.in_Geogrid))
+    print('    Forecast Point CSV file: {0}'.format(args.in_CSV))
     print('    Mask CHANNELGRID variable to forecast basins?: {0}'.format(args.basin_mask))
     print('    Create reach-based routing (RouteLink) files?: {0}'.format(args.RB_routing))
     print('    Lake polygon feature class: {0}'.format(args.in_reservoirs))
@@ -456,13 +462,13 @@ if __name__ == '__main__':
 
         # Run pre-process
         print('  Running Process GEOGRID function')
-        GEOGRID_STANDALONE(args.inGeogrid,
+        GEOGRID_STANDALONE(args.in_Geogrid,
                             args.cellsize,
                             args.inDEM,
                             projdir,
                             args.threshold,
                             args.out_zip_file,
-                            in_csv = args.inCSV,
+                            in_csv = args.in_CSV,
                             basin_mask = args.basin_mask,
                             routing = args.RB_routing,
                             varList2D = varList2D,

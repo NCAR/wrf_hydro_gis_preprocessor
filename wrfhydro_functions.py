@@ -400,6 +400,9 @@ class WRF_Hydro_Grid:
                 pole_orientation = 'North'
             else:
                 pole_orientation = 'South'
+
+            # 10/5/2020: Changed parameter "Standard_Parallel_1" from 0.0 to the value of TRUELAT1
+            # Appears to work for WPS polar stereographic domains such as NWM AK
             Projection_String = ('PROJCS["Sphere_Stereographic",'
                                     'GEOGCS["GCS_Sphere",'
                                     'DATUM["D_Sphere",'
@@ -410,7 +413,7 @@ class WRF_Hydro_Grid:
                                     'PARAMETER["False_Easting",0.0],'
                                     'PARAMETER["False_Northing",0.0],'
                                     'PARAMETER["Central_Meridian",' + str(central_meridian) + '],'
-                                    'PARAMETER["Standard_Parallel_1",0.0],'
+                                    'PARAMETER["Standard_Parallel_1",' + str(standard_parallel_1) + '],'
                                     'UNIT["Meter",1.0]]')
 
             proj.ImportFromWkt(Projection_String)
@@ -1759,6 +1762,65 @@ def build_GW_buckets(out_dir, GWBasns, grid_obj, Grid=True, saveRaster=False):
     print('Finished building groundwater parameter files in {0: 3.2f} seconds'.format(time.time()-tic1))
     return
 
+def force_edges_off_grid(fd_arr):
+    '''
+    10/23/2020:
+        This function is intended to resolve an incompatibility between Whitebox'
+        fill_depressions_planchon_and_darboux method and WRF-Hydro. This method
+        is known to produce flow direction values of 0 on grid edges where a flow
+        direction cannot be determined. Unlike ArcGIS Fill tool, which will optionally
+        allow users to set edge cells to flow off the edge of the grid, Whitebox
+        tools do not allow this. Thus, those 0-value flow directions must be identified
+        and resolved.
+
+        The resolution is to find which edge the cell is on and force the flow direction
+        to flow off of the edge of the grid.
+
+        This function uses the Esri flow-direction scheme. All cells on the left edge
+        will flow to the right off the right edge, then any remaining edge cells on the
+        top edge will flow upward off the top edge, then any cells on the right edge
+        will flow right off the right edge, and finally any cells along the bottom
+        will flow downward off the bottom edge.
+    '''
+    tic1 = time.time()
+
+    # Dictionary to
+
+    # Get array shape
+    arr_shape = fd_arr.shape
+    rows = arr_shape[0]
+    cols = arr_shape[1]
+
+    # Find indices of cells that have 0 flow direction
+    zero_index_arr = numpy.argwhere(fd_arr==0)                                  # Get indices of all zero values in input grid
+    fd_arr_out = fd_arr.copy()                                                  # Make a copy
+    counter = 0
+    for entry in zero_index_arr:
+        # The indices from numpy.argwhere are y,x
+        i = entry[1]                    # x-direction index
+        j = entry[0]                    # y-direction index
+        if fd_arr_out[j,i] == 0:
+            if i == 0:
+                # Left edge
+                fd_arr_out[j,i] = 16
+            elif j == 0:
+                # Top edge
+                fd_arr_out[j,i] = 64
+            elif i == cols-1:
+                # Right edge
+                fd_arr_out[j,i] = 1
+            elif j == rows-1:
+                # Bottom edge
+                fd_arr_out[j,i] = 4
+            else:
+                print('        Not able to determine which edge 0-value in flow direction grid at index [{0},{1}] (i,j) flows to.'.format(i,j))
+            counter+=1
+    if fd_arr_out[fd_arr_out==0].shape[0] == 0:
+        print('    Coerced {0} 0-value flow direction cells to flow off of the grid.'.format(counter))
+    else:
+        print('    Could not corece all 0-value flow direction cells to flow off of the grid.')
+    return fd_arr_out
+
 def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtfac_val, lksatfac_val, sink=False, startPts=None):
     """
     This function is intended to produce the hydroglocial DEM corrections and derivitive
@@ -1780,8 +1842,8 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
 
     # Workflow options
     Full_Workflow = False                               # Use the Flow Accumulation Full Workflow tool (fewer options)
-    default_Method = True                               # Fill Depressions (Planchon and Darboux)
-    fill_deps = True                                   # Option to Fill Depressions
+    default_Method = False                               # Fill Depressions (Planchon and Darboux), no z-Limit functionality
+    fill_deps = True                                    # Option to Fill Depressions with z_limit
     breach_deps = False                                 # Option to Breach Depressions
     breach_deps_LC = False                              # Option to use Breach Depressions (Least Cost)
 
@@ -1806,6 +1868,7 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
 
     # Determine which terrain processing workflow to follow from Whitebox Tools tools.
     if Full_Workflow:
+        print('    Algorithm: Whitebox Flow Accumulation Full Workflow.')
         # Perform Fill, Flow Direction, and Flow Accumulation in one step
         wbt.flow_accumulation_full_workflow(
             indem,
@@ -1817,11 +1880,12 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
     else:
         # Runs each whitebox tool separately
         if fill_deps:
+            print('    Depression Filling algorithm: Whitebox Fill Depressions.')
 
             # Fill Depressions options
             fix_flats = True                                   # Optional flag indicating whether flat areas should have a small gradient applied. [True, False]
             max_depth = z_limit                                # Optional maximum breach depth (default is Inf) [None]
-            fill_pits_bool = True                              # Option to fill single cell pits
+            fill_pits_bool = False                              # Option to fill single cell pits
 
             # Optional elevation increment applied to flat areas in Breach Depressions and Fill Depressions tools
             # Appropriate values from 0.01 - 0.00001, None
@@ -1848,6 +1912,7 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
             exceeded such that the output DEM will be completely depressionless.
             This is not always desirable.
             '''
+            print('    Depression Breaching algorithm: Whitebox Breach Depressions (Lindsay, 2016).')
 
             # Breach Depression options
             max_length = x_limit                               # Optional maximum breach channel length (in grid cells; default is Inf) [None]
@@ -1873,6 +1938,7 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
             #remove_file(os.path.join(projdir, fill_pits))                       # Delete temporary file
 
         elif breach_deps_LC:
+            print('    Depression Breaching algorithm: Whitebox Breach Depressions Least Cost (Lindsay and Dhun, 2015).')
 
             # Breach Depressions Least Cost Options
             fill_remaining = True                           # Optional flag indicating whether to fill any remaining unbreached depressions
@@ -1898,6 +1964,7 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
             # Esri Spatial Analyst "Fill" tool with no fill limit.
             # Planchon, O. and Darboux, F., 2002. A fast, simple and versatile algorithm to fill the depressions of digital elevation models. Catena, 46(2-3), pp.159-176.
 
+            print('    Depression Filling algorithm: Planchon and Darboux (2002).')
             # Fill Depressions (Planchon and Darboux) options
             fix_flats = False                               # Optional flag indicating whether flat areas should have a small gradient applied. [True, False]
             flat_increment = None                           # 0.0001
@@ -1927,9 +1994,11 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
     # Process: Flow Direction
     dir_d8_file = os.path.join(projdir, dir_d8)
     fdir_arr, ndv = return_raster_array(dir_d8_file)
-    rootgrp.variables['FLOWDIRECTION'][:] = fdir_arr
+    fdir_arr[fdir_arr==ndv] = 255                                               # Replace raster NoData with specific value
+    fdir_arr_out = force_edges_off_grid(fdir_arr)                               # Force 0-value cells to flow off edge of grid.
+    rootgrp.variables['FLOWDIRECTION'][:] = fdir_arr_out
     print('    Process: FLOWDIRECTION written to output netCDF.')
-    del fdir_arr, ndv
+    del fdir_arr, fdir_arr_out, ndv
 
     # Process: Flow Accumulation (intermediate
     flow_acc_file = os.path.join(projdir, flow_acc)
@@ -1970,7 +2039,11 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
     # Export stream channel raster
     streams_file = os.path.join(projdir, streams)
     strm_arr, ndv = return_raster_array(streams_file)
-    strm_arr[strm_arr==1] = 0
+    if not startPts:
+        strm_arr[strm_arr==1] = 0
+    if startPts is not None:
+        # Added 10/6/2020 to reclassify results of trace_downslope_flowpaths
+        strm_arr[strm_arr!=ndv] = 0
     strm_arr[strm_arr==ndv] = NoDataVal
     rootgrp.variables['CHANNELGRID'][:] = strm_arr
     print('    Process: CHANNELGRID written to output netCDF.')
