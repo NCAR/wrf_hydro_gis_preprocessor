@@ -2455,9 +2455,34 @@ def Routing_Table(projdir, rootgrp, grid_obj, fdir, strm, Elev, Strahler, gages=
     if numpy.unique(strm_link_arr).shape[0] > 32768 or strm_link_arr[strm_link_arr<0].shape[0] > 0:
         print('        Warning: Number of unique IDs exceeds limit of 16-bit unsigned integer type. ' + \
                 'Not all reaches may be converted to stream vectors. Check output carefully.')
-    strm_link_arr[strm_link_arr==ndv] = NoDataVal
-    strm_link_arr[strm_link_arr<1] = NoDataVal
+    strm_link_arr[strm_link_arr==ndv] = NoDataVal                               # Set nodata values to WRF-Hydro nodata value
+    strm_link_arr[strm_link_arr<1] = NoDataVal                                  # Remove zeros from background of grid
+
+    # Find any LINKID reach ID values that did not get transferred to the stream vector file.
+    # These are typically single-cell channel cells on the edge of the grid.
+    ds = ogr.Open(os.path.join(projdir, streams_vector))
+    lyr = ds.GetLayer(0)                                               # Get the 'layer' object from the data source
+    vector_reach_IDs = numpy.unique([feature.GetField('STRM_VAL') for feature in lyr])
+    print('        Found {0} unique IDs in stream vector layer.'.format(len(vector_reach_IDs)))
+    ds = lyr = None
+
+    # Resolve issue where LINKID values are present that do not correspond to a vector ID (10/25/2020)
+    grid_reach_IDs = numpy.unique(strm_link_arr[strm_link_arr!=NoDataVal])
+    missing_reach_IDs = grid_reach_IDs[~numpy.in1d(grid_reach_IDs, vector_reach_IDs)]
+    print('        Eliminating {0} IDs in LINKID grid that could not be resolved in stream vector layer.'.format(missing_reach_IDs.shape[0]))
+    print('          {0}'.format(missing_reach_IDs.tolist()))
+    channel_arr = rootgrp.variables['CHANNELGRID'][:]
+    strorder_arr = rootgrp.variables['STREAMORDER'][:]
+    for idVal in missing_reach_IDs:
+        arr_mask = strm_link_arr==idVal         # Build a boolean mask for masking all array elements to be changed
+        strm_link_arr[arr_mask] = NoDataVal     # Set all linkid values that didn't get resolved in the routelink file to nodata.
+        channel_arr[arr_mask] = NoDataVal       # Set all channel values that didn't get resolved in the routelink file to nodata.
+        strorder_arr[arr_mask] = NoDataVal      # Set all channel values that didn't get resolved in the routelink file to nodata.
+        del arr_mask
     rootgrp.variables['LINKID'][:] = strm_link_arr
+    rootgrp.variables['CHANNELGRID'][:] = channel_arr
+    rootgrp.variables['STREAMORDER'][:] = strorder_arr
+    del channel_arr, strorder_arr, grid_reach_IDs, missing_reach_IDs
 
     gage_linkID = {}
     if gages:
