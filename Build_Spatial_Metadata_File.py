@@ -38,8 +38,6 @@ from pathlib import Path
 from wrfhydro_functions import (WRF_Hydro_Grid, projdict, flip_grid,
     numpy_to_Raster, wgs84_proj4, ReprojectCoords, outNCType, create_CF_NetCDF)
 
-print('Script initiated at {0}'.format(time.ctime()))
-
 # Globals
 latlon_vars = True                                                              # Include LATITUDE and LONGITUDE 2D variables?
 defaultGeogrid = 'geo_em.d01.nc'
@@ -56,7 +54,7 @@ coordMethod2 = False                                                            
 # Main Codeblock
 if __name__ == '__main__':
     tic = time.time()
-    print('Beginning processing on {0}'.format(time.ctime()))
+    print('Script initiated at {0}'.format(time.ctime()))
 
     parser = ArgumentParser(description=descText, add_help=True)
     parser.add_argument("-i",

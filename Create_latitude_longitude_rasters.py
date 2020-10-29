@@ -32,7 +32,6 @@ from argparse import ArgumentParser
 # Import wrfhydro_functions as wrfh, Function script packaged with this toolbox
 from wrfhydro_functions import (get_projection_from_raster, wgs84_proj4, getxy,
     ReprojectCoords, numpy_to_Raster)
-print('Script initiated at {0}'.format(time.ctime()))
 
 # Global Variables
 

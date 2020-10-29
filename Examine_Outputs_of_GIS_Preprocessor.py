@@ -45,7 +45,6 @@ RasterDriver = 'GTiff'                                                          
 suffix = '.tif'                                                                 # File extension to use for output rasters
 skipfiles = []                                                                  # Files that should not be converted or written to output directory
 
-
 # --- Functions --- #
 def examine_outputs(out_folder, dellist=[], skipfiles=[]):
     '''

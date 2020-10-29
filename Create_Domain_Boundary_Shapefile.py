@@ -32,7 +32,6 @@ from pathlib import Path
 # Import function library into namespace. Must exist in same directory as this script.
 #import wrfhydro_functions as wrfh                                               # Function script packaged with this toolbox
 from wrfhydro_functions import WRF_Hydro_Grid
-print('Script initiated at {0}'.format(time.ctime()))
 
 # --- Global Variables --- #
 outDriverName = 'ESRI Shapefile'                                                # Output vector file format (OGR driver name)

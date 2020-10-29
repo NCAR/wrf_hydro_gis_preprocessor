@@ -32,8 +32,6 @@ from pathlib import Path
 # Import function library into namespace. Must exist in same directory as this script.
 from wrfhydro_functions import CSV_to_SHP                                       # Function script packaged with this toolbox
 
-print('Script initiated at {0}'.format(time.ctime()))
-
 # Global Variables
 
 # Coordinate system of all latitude/longitude coordinates: WGS84, EPSG:4326
@@ -65,6 +63,7 @@ OGRTypes = {ogr.OFTBinary: numpy.object,
 # Main Codeblock
 if __name__ == '__main__':
     tic = time.time()
+    print('Script initiated at {0}'.format(time.ctime()))
 
     # Setup the input arguments
     parser = ArgumentParser(description=descText, add_help=True)

@@ -30,7 +30,6 @@ from pathlib import Path
 
 # Import function library into namespace. Must exist in same directory as this script.
 from wrfhydro_functions import WRF_Hydro_Grid
-print('Script initiated at {0}'.format(time.ctime()))
 
 # Global Variables
 defaultGeogrid = 'geo_em.d01.nc'
