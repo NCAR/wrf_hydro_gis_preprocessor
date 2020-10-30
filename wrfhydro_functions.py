@@ -2734,7 +2734,7 @@ def build_LAKEPARM(LakeNC, min_elevs, areas, max_elevs, OrificEs, cen_lats, cen_
 
     print('        Starting to fill in lake parameter table NC file.')
     AscendOrder[:] = numpy.argsort(ids[:])                                  # Use argsort to give the ascending sort order for IDs. Added by KMS 4/4/2017
-    LkAreas[:] = numpy.array([float(areas[lkid])/float(1000000) for lkid in min_elev_keys])  # Divide by 1M for kilometers^2
+    LkAreas[:] = numpy.array([float(areas[lkid]) for lkid in min_elev_keys])
     LkMxEs[:] = numpy.array([max_elevs[lkid] for lkid in min_elev_keys])
     WeirCs[:] = WeirC
     WeirLs[:] = WeirL
