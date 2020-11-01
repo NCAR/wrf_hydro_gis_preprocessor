@@ -1,0 +1,11 @@
+Metadata-Version: 1.2
+Name: wrfhydro-gis
+Version: 0.1.0
+Summary: Geospatial Pre-processing functions for the WRF-Hydro model
+Home-page: https://github.com/NCAR/wrf_hydro_gis_preprocessor
+Author: Kevin Sampson & Matt Casali
+Author-email: ksampson@ucar.edu
+License: MIT
+Description: UNKNOWN
+Platform: UNKNOWN
+Requires-Python: >=3.6.10
