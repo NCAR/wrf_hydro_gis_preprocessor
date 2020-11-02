@@ -425,11 +425,28 @@ if __name__ == '__main__':
     if args.retdeprtfac_val == all_defaults["retdeprtfac_val"]:
         print('    Using default RETDEPRTFAC parameter value: {0}'.format(all_defaults["retdeprtfac_val"]))
 
-    # This block allows us to continue to check for a valid file while allowing the script later to avoid a NoneType error.
-    if args.in_reservoirs == None:
+    # Handle unsupported configurations
+    if args.RB_routing and args.in_reservoirs is not None:
+        print('  Reach-based routing with reservoirs configuration not currently supported in this version of the GIS Pre-processing tools. Try the ArcGIS version.')
+        print('Exiting.')
+        raise SystemExit
+
+    # This block allows us to continue to check for a valid file path while allowing the script later to avoid a NoneType error.
+    args.in_Geogrid = os.path.abspath(args.in_Geogrid)                          # Obtain absolute path for required input file.
+    args.inDEM = os.path.abspath(args.inDEM)                                    # Obtain absolute path for required input file.
+    args.out_zip_file = os.path.abspath(args.out_zip_file)                      # Obtain absolute path for required output file.
+    if not args.in_reservoirs:
         args.in_reservoirs = ''
+    else:
+        args.in_reservoirs = os.path.abspath(args.in_reservoirs)                # Obtain absolute path for optional input file.
     if args.in_CSV == None:
         args.in_CSV = ''
+    else:
+        args.in_CSV = os.path.abspath(args.in_CSV)                              # Obtain absolute path for optional input file.
+    if args.channel_starts != None:
+        args.channel_starts = os.path.abspath(args.channel_starts)              # Obtain absolute path for optional input file.
+    if args.gw_polys is not None:
+        args.gw_polys = os.path.abspath(args.gw_polys)                          # Obtain absolute path for optional input file.
 
     # Print information to screen
     print('  Values that will be used in building this routing stack:')

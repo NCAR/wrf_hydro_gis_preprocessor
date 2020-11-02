@@ -2369,7 +2369,7 @@ def build_RouteLink(RoutingNC, order, From_To, NodeElev, NodesLL, NodesXY, Lengt
     print('    Routing table created without error.')
     return
 
-def Routing_Table(projdir, rootgrp, grid_obj, fdir, strm, Elev, Strahler, gages=False):
+def Routing_Table(projdir, rootgrp, grid_obj, fdir, strm, Elev, Strahler, gages=False, Lakes=None):
     """If "Create reach-based routing files?" is selected, this function will create
     the Route_Link.nc table and Streams.shp shapefiles in the output directory."""
 
@@ -2776,6 +2776,8 @@ def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, 
     """
     #(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield, Gridded) = (rootgrp2, projdir, fac, in_lakes, fine_grid, None, gridded)
     tic1 = time.time()                                                          # Set timer
+    print('      Adding reservoirs to routing stack.')
+    print('      Gridded: {0}'.format(Gridded))
 
     # Setup Whitebox tools
     wbt = WhiteboxTools()
@@ -2854,7 +2856,6 @@ def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, 
     strm_arr = rootgrp.variables['CHANNELGRID'][:]                              # Read channel grid array from Fulldom
     lake_uniques = numpy.unique(Lake_arr[Lake_arr!=NoDataVal])
     subsetLakes = True                                                          # Option to eliminate lakes that do not intersect channel network
-    #if Gridded and subsetLakes:
     if subsetLakes:
         Lk_chan = {lake:strm_arr[numpy.logical_and(Lake_arr==lake, strm_arr==0)].shape[0]>0 for lake in lake_uniques}   # So slow...
         old_Lk_count = lake_uniques.shape[0]
