@@ -37,7 +37,7 @@ In turn, these scripts rely on a set of functions in [wrfhydro_functions.py](htt
 
 Use `-h` when calling any of the scripts on the command-line, for help information. Provide the required and any optional parameters as arguments. The following steps will excecute a process to generate a minimal set of routing grids for the desired domain. This example assumes use of a Bash shell.
 
-`python Build_Routing_Stack.py -i ./geo_em.d01.nc -d ./NED_30m_Croton.tif -R 4 -t 20 -o ./croton_test.zip`
+`python Build_Routing_Stack.py -i geo_em.d01.nc -d NED_30m_Croton.tif -R 4 -t 20 -o croton_test.zip`
 
 ## NCAR Disclaimer
 The National Center for Atmospheric Research (NCAR) GitHub project code is provided on an "as is" basis and the user assumes responsibility for its use.  NCAR has relinquished control of the information and no longer has responsibility to protect the integrity , confidentiality, or availability of the information.  Any reference to specific commercial products, processes, or services by service mark, trademark, manufacturer, or otherwise, does not constitute or imply their endorsement, recommendation or favoring by NCAR.  The NCAR seal and logo shall not be used in any manner to imply endorsement of any commercial product or activity by NCAR or the National Science Foundation (NSF).
