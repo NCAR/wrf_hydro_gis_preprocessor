@@ -19,11 +19,11 @@ The scripts for the WRF-Hydro GIS Pre-processor rely on several python modules a
 If you are using Anaconda, creating a new, clean 'wrfh_gis_env' environment with these needed packages can be done easily and simply one of several ways:
 
 * In your conda shell, add one necessary channel (conda-forge) and then download the component libraries from the Anaconda cloud:
-  + conda config --add channels conda-forge
-  + conda create -n wrfh_gis_env -c conda-forge python=3.6 gdal netCDF4 numpy pyproj whitebox=1.2.0
+  + `conda config --add channels conda-forge`
+  + `conda create -n wrfh_gis_env -c conda-forge python=3.6 gdal netCDF4 numpy pyproj whitebox=1.2.0`
   
 * To activate this new environment, type the following at the conda prompt
-  + activate wrfh_gis_env
+  + `activate wrfh_gis_env`
   
 ## How to Run Scripts 
 
@@ -37,12 +37,7 @@ In turn, these scripts rely on a set of functions in [wrfhydro_functions.py](htt
 
 Use `-h` when calling any of the scripts on the command-line, for help information. Provide the required and any optional parameters as arguments. The following steps will excecute a process to generate a minimal set of routing grids for the desired domain. This example assumes use of a Bash shell.
 
-`python Build_Routing_Stack.py \
-	 -i ./geo_em.d01.nc \
-	 -d ./NED_30m_Croton.tif \
-	 -R 4 \
-	 -t 20 \
-	 -o ./croton_test.zip`
+`python Build_Routing_Stack.py -i ./geo_em.d01.nc -d ./NED_30m_Croton.tif -R 4 -t 20 -o ./croton_test.zip`
 
 ## NCAR Disclaimer
 The National Center for Atmospheric Research (NCAR) GitHub project code is provided on an "as is" basis and the user assumes responsibility for its use.  NCAR has relinquished control of the information and no longer has responsibility to protect the integrity , confidentiality, or availability of the information.  Any reference to specific commercial products, processes, or services by service mark, trademark, manufacturer, or otherwise, does not constitute or imply their endorsement, recommendation or favoring by NCAR.  The NCAR seal and logo shall not be used in any manner to imply endorsement of any commercial product or activity by NCAR or the National Science Foundation (NSF).
