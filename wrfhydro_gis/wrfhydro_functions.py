@@ -1989,7 +1989,7 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
     fill_arr[fill_arr==ndv] = NoDataVal                                         # Replace raster NoData with WRF-Hydro NoData value
     rootgrp.variables['TOPOGRAPHY'][:] = fill_arr
     print('    Process: TOPOGRAPHY written to output netCDF.')
-    del fill_arr, ndv       #, fill_pits_file
+    del fill_arr, ndv
 
     # Process: Flow Direction
     dir_d8_file = os.path.join(projdir, dir_d8)
