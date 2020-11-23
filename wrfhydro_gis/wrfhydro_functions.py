@@ -43,6 +43,7 @@ import platform                                                                 
 import ogr
 import osr
 import gdal
+import osgeo
 import gdalconst
 from gdalnumeric import *                                                       # Assists in using BandWriteArray, BandReadAsArray, and CopyDatasetInfo
 from osgeo import gdal_array
@@ -73,7 +74,7 @@ RasterDriver = 'GTiff'
 VectorDriver = 'ESRI Shapefile'                                                # Output vector file format (OGR driver name)
 
 # Version numbers toa ppend to metadata
-PpVersion = 'v5.1 (10/2019)'                                                    # WRF-Hydro ArcGIS Pre-processor version to add to FullDom metadata
+PpVersion = 'Open-Source WRF-Hydro GIS Pre-Processing Tools v0.1.0 (11/2020)'   # WRF-Hydro ArcGIS Pre-processor version to add to FullDom metadata
 CFConv = 'CF-1.5'                                                               # CF-Conventions version to place in the 'Conventions' attribute of RouteLink files
 
 # Output netCDF format
@@ -442,6 +443,13 @@ class WRF_Hydro_Grid:
         # Set the origin for the output raster (in GDAL, usuall upper left corner) using projected corner coordinates
         wgs84_proj = osr.SpatialReference()
         wgs84_proj.ImportFromProj4(wgs84_proj4)
+
+        # Added 11/19/2020 to allow for GDAL 3.0 changes to the order of coordinates in transform
+        if int(osgeo.__version__[0]) >= 3:
+            # GDAL 3 changes axis order: https://github.com/OSGeo/gdal/issues/1546
+            wgs84_proj.SetAxisMappingStrategy(osgeo.osr.OAMS_TRADITIONAL_GIS_ORDER)
+            proj.SetAxisMappingStrategy(osgeo.osr.OAMS_TRADITIONAL_GIS_ORDER)
+
         transform = osr.CoordinateTransformation(wgs84_proj, proj)
         point = ogr.Geometry(ogr.wkbPoint)
         point.AddPoint_2D(corner_lon, corner_lat)
@@ -1056,6 +1064,12 @@ def ReprojectCoords(xcoords, ycoords, src_srs, tgt_srs):
     '''
     tic1 = time.time()
 
+    # Added 11/19/2020 to allow for GDAL 3.0 changes to the order of coordinates in transform
+    if int(osgeo.__version__[0]) >= 3:
+        # GDAL 3 changes axis order: https://github.com/OSGeo/gdal/issues/1546
+        src_srs.SetAxisMappingStrategy(osgeo.osr.OAMS_TRADITIONAL_GIS_ORDER)
+        tgt_srs.SetAxisMappingStrategy(osgeo.osr.OAMS_TRADITIONAL_GIS_ORDER)
+
     # Setup coordinate transform
     transform = osr.CoordinateTransformation(src_srs, tgt_srs)
 
@@ -1121,6 +1135,12 @@ def project_Features(InputVector, outProj, clipGeom=None, geomType=None):
     in_proj = in_layer.GetSpatialRef()                                          # Obtain the coordinate reference object.
     in_LayerDef = in_layer.GetLayerDefn()
 
+    # Added 11/19/2020 to allow for GDAL 3.0 changes to the order of coordinates in transform
+    if int(osgeo.__version__[0]) >= 3:
+        # GDAL 3 changes axis order: https://github.com/OSGeo/gdal/issues/1546
+        in_proj.SetAxisMappingStrategy(osgeo.osr.OAMS_TRADITIONAL_GIS_ORDER)
+        outProj.SetAxisMappingStrategy(osgeo.osr.OAMS_TRADITIONAL_GIS_ORDER)
+
     # Check if a coordinate transformation (projection) must be performed
     if not outProj.IsSame(in_proj):
         print('    Input shapefile projection does not match requested output. Transforming.')
@@ -1160,7 +1180,7 @@ def project_Features(InputVector, outProj, clipGeom=None, geomType=None):
             continue                                                            # Trap because some geometries end up as None
         feature.SetGeometry(geometry)                                           # Set output Shapefile's feature geometry
         outLayer.CreateFeature(feature)
-        feature = outFeature = geometry = None                                  # Clear memory
+        feature = geometry = None                                  # Clear memory
     in_layer.ResetReading()
     outLayer.ResetReading()
     outFeatCount = outLayer.GetFeatureCount()                                   # Get number of features in output layer
@@ -2019,15 +2039,15 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
 
         # Project input points and clip to domain if necessary
         geom = boundarySHP(dir_d8_file)                                         # Get domain extent for cliping geometry
-        poly_ds, poly_layer, fieldNames = project_Features(startPts,
+        pt_ds, pt_layer, fieldNames = project_Features(startPts,
                                                             geom.GetSpatialReference(),
                                                             clipGeom=geom,
                                                             geomType=ogr.wkbPoint)
 
         # Project the input polygons to the output coordinate system
         temp_pts = os.path.join(projdir, start_pts_temp)
-        out_ds = ogr.GetDriverByName(VectorDriver).CopyDataSource(poly_ds, temp_pts) # Copy to file on disk
-        poly_layer = poly_ds = fieldNames = out_ds = geom = None
+        out_ds = ogr.GetDriverByName(VectorDriver).CopyDataSource(pt_ds, temp_pts) # Copy to file on disk
+        pt_layer = pt_ds = fieldNames = out_ds = geom = None
 
         print('    Flow accumulation will be weighted using input channel initiation points.')
         wbt.trace_downslope_flowpaths(temp_pts, dir_d8, streams, esri_pntr=esri_pntr, zero_background=False)
@@ -2105,6 +2125,12 @@ def CSV_to_SHP(in_csv, DriverName='MEMORY', xVar='LON', yVar='LAT', idVar='FID',
         transform = osr.CoordinateTransformation(srs, out_srs)
     else:
         out_srs = srs.Clone()
+
+    # Added 11/19/2020 to allow for GDAL 3.0 changes to the order of coordinates in transform
+    if int(osgeo.__version__[0]) >= 3:
+        # GDAL 3 changes axis order: https://github.com/OSGeo/gdal/issues/1546
+        srs.SetAxisMappingStrategy(osgeo.osr.OAMS_TRADITIONAL_GIS_ORDER)
+        out_srs.SetAxisMappingStrategy(osgeo.osr.OAMS_TRADITIONAL_GIS_ORDER)
 
     # Add the fields we're interested in
     layer = data_source.CreateLayer('frxst_FC', out_srs, ogr.wkbPoint)
@@ -2498,6 +2524,11 @@ def Routing_Table(projdir, rootgrp, grid_obj, fdir, strm, Elev, Strahler, gages=
     # Setup coordinate transform for calculating lat/lon from x/y
     wgs84_proj = osr.SpatialReference()
     wgs84_proj.ImportFromProj4(wgs84_proj4)
+
+    # Added 11/19/2020 to allow for GDAL 3.0 changes to the order of coordinates in transform
+    if int(osgeo.__version__[0]) >= 3:
+        # GDAL 3 changes axis order: https://github.com/OSGeo/gdal/issues/1546
+        wgs84_proj.SetAxisMappingStrategy(osgeo.osr.OAMS_TRADITIONAL_GIS_ORDER)
     coordTrans = osr.CoordinateTransformation(grid_obj.proj, wgs84_proj)        # Transformation from grid projection to WGS84
 
     # Initiate dictionaries for storing topology and attribute information
@@ -2793,8 +2824,14 @@ def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, 
     # Setup coordinate transform for calculating lat/lon from x/y
     wgs84_proj = osr.SpatialReference()
     wgs84_proj.ImportFromProj4(wgs84_proj4)
+
+    # Added 11/19/2020 to allow for GDAL 3.0 changes to the order of coordinates in transform
+    if int(osgeo.__version__[0]) >= 3:
+        # GDAL 3 changes axis order: https://github.com/OSGeo/gdal/issues/1546
+        wgs84_proj.SetAxisMappingStrategy(osgeo.osr.OAMS_TRADITIONAL_GIS_ORDER)
     coordTrans = osr.CoordinateTransformation(grid_obj.proj, wgs84_proj)        # Transformation from grid projection to WGS84
     coordTrans_inv = osr.CoordinateTransformation(wgs84_proj, grid_obj.proj)    # Transformation from WGS84 to grid projection
+
 
     # Use extent of the template raster to add a feature layer of lake polygons
     geom = grid_obj.boundarySHP('', 'MEMORY')                                   # Get domain extent for cliping geometry
