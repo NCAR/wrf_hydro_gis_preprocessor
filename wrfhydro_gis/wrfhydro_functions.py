@@ -422,7 +422,8 @@ class WRF_Hydro_Grid:
 
         elif self.map_pro == 3:
             # Mercator Projection
-            proj.SetMercator(latitude_of_origin, central_meridian, 1, 0, 0)     # Scale = 1???
+            proj.SetMercator(standard_parallel_1, central_meridian, 1, 0, 0)     # Scale = 1???
+            #proj.SetMercator(latitude_of_origin, central_meridian, 1, 0, 0)     # Scale = 1???
             #proj.SetMercator(double clat, double clong, double scale, double fe, double fn)
 
         elif self.map_pro == 6:
