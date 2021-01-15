@@ -397,7 +397,8 @@ if __name__ == '__main__':
                         default=None,
                         help="Path to channel initiation points feature class. Must be 2D point type. [OPTIONAL]")
     parser.add_argument("--gw",
-                        dest="gw_polys",type=lambda x: is_valid_file(parser, x),
+                        dest="gw_polys",
+                        type=lambda x: is_valid_file(parser, x),
                         default=None,
                         help="Path to groundwater polygons feature class [OPTIONAL]")
 

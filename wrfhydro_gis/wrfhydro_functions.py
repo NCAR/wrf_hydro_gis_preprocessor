@@ -1783,7 +1783,7 @@ def build_GW_buckets(out_dir, GWBasns, grid_obj, Grid=True, saveRaster=False):
     print('Finished building groundwater parameter files in {0: 3.2f} seconds'.format(time.time()-tic1))
     return
 
-def force_edges_off_grid(fd_arr):
+def force_edges_off_grid(fd_arr, ignore_vals=[]):
     '''
     10/23/2020:
         This function is intended to resolve an incompatibility between Whitebox'
@@ -1805,7 +1805,7 @@ def force_edges_off_grid(fd_arr):
     '''
     tic1 = time.time()
 
-    # Dictionary to
+    silent = True       # Supress messages about cells flowing off of the edge.
 
     # Get array shape
     arr_shape = fd_arr.shape
@@ -1834,7 +1834,8 @@ def force_edges_off_grid(fd_arr):
                 # Bottom edge
                 fd_arr_out[j,i] = 4
             else:
-                print('        Not able to determine which edge 0-value in flow direction grid at index [{0},{1}] (i,j) flows to.'.format(i,j))
+                if not silent:
+                    print('        Not able to determine which edge 0-value in flow direction grid at index [{0},{1}] (i,j) flows to.'.format(i,j))
             counter+=1
     if fd_arr_out[fd_arr_out==0].shape[0] == 0:
         print('    Coerced {0} 0-value flow direction cells to flow off of the grid.'.format(counter))
@@ -2015,8 +2016,9 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
     # Process: Flow Direction
     dir_d8_file = os.path.join(projdir, dir_d8)
     fdir_arr, ndv = return_raster_array(dir_d8_file)
-    fdir_arr[fdir_arr==ndv] = 255                                               # Replace raster NoData with specific value
+    #fdir_arr[fdir_arr==ndv] = 255                                               # Replace raster NoData with specific value
     fdir_arr_out = force_edges_off_grid(fdir_arr)                               # Force 0-value cells to flow off edge of grid.
+    fdir_arr_out[fdir_arr_out==ndv] = 255                                       # Replace raster NoData with specific value
     rootgrp.variables['FLOWDIRECTION'][:] = fdir_arr_out
     print('    Process: FLOWDIRECTION written to output netCDF.')
     del fdir_arr, fdir_arr_out, ndv
