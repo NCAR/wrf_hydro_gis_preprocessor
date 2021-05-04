@@ -126,7 +126,7 @@ if __name__ == '__main__':
     fdir = os.path.join(projdir, dir_d8)
     channelgrid = os.path.join(projdir, streams)
     if saveBasins_Fine:
-        basinRaster_Fine = os.path.join(projdir, 'GWBasins_fine.tif')
+        basinRaster_File = os.path.join(projdir, 'GWBasins_fine.tif')
         nclist.append('GWBasins_fine.tif')
     if saveBasins_Coarse:
         nclist.append(basinRaster)
@@ -157,7 +157,7 @@ if __name__ == '__main__':
     GWBasns = build_GW_Basin_Raster(args.in_fulldom, projdir, args.GWmethod, channelgrid, fdir, fine_grid, in_Polys=args.in_GWPolys)
     build_GW_buckets(projdir, GWBasns, coarse_grid, Grid=True, saveRaster=saveBasins_Coarse)
     if saveBasins_Fine:
-        out_ds3 = gdal.GetDriverByName(RasterDriver).CreateCopy(basinRaster_Fine, GWBasns)
+        out_ds3 = gdal.GetDriverByName(RasterDriver).CreateCopy(basinRaster_File, GWBasns)
         out_ds3 = None
     GWBasns = None
     remove_file(fdir)

@@ -74,7 +74,8 @@ RasterDriver = 'GTiff'
 VectorDriver = 'ESRI Shapefile'                                                # Output vector file format (OGR driver name)
 
 # Version numbers toa ppend to metadata
-PpVersion = 'Open-Source WRF-Hydro GIS Pre-Processing Tools v0.1.0 (11/2020)'   # WRF-Hydro ArcGIS Pre-processor version to add to FullDom metadata
+WRFH_Version = 5.2                                                              # WRF-Hydro version to be executed using the outputs of this tool
+PpVersion = 'Open-Source WRF-Hydro GIS Pre-Processing Tools v0.2.0 (04/2021)'   # WRF-Hydro ArcGIS Pre-processor version to add to FullDom metadata
 CFConv = 'CF-1.5'                                                               # CF-Conventions version to place in the 'Conventions' attribute of RouteLink files
 
 # Output netCDF format
@@ -2717,7 +2718,8 @@ def build_LAKEPARM(LakeNC, min_elevs, areas, max_elevs, OrificEs, cen_lats, cen_
     WeirEs = rootgrp.createVariable('WeirE', 'f8', (dim1))                      # Variable (64-bit floating point)
     AscendOrder = rootgrp.createVariable('ascendingIndex', 'i4', (dim1))        # Variable (32-bit signed integer)
     ifd = rootgrp.createVariable('ifd', 'f4', (dim1))                           # Variable (32-bit floating point)
-    Dam = rootgrp.createVariable('Dam_Length', 'i4', (dim1))                    # Variable (32-bit signed integer)
+    if WRFH_Version >= 5.2:
+        Dam = rootgrp.createVariable('Dam_Length', 'i4', (dim1))                # Variable (32-bit signed integer)
 
     # Add CF-compliant coordinate system variable
     if pointCF:
@@ -2752,7 +2754,8 @@ def build_LAKEPARM(LakeNC, min_elevs, areas, max_elevs, OrificEs, cen_lats, cen_
     Times.units = 'days since 2000-01-01 00:00:00'                              # For compliance. Reference time arbitrary
     WeirEs.units = 'm'
     ids.cf_role = "timeseries_id"                                               # For compliance
-    Dam.long_name = 'Dam length (multiplier on weir length)'
+    if WRFH_Version >= 5.2:
+        Dam.long_name = 'Dam length (multiplier on weir length)'
 
     # Apply grid_mapping and coordinates attributes to all variables
     for varname, ncVar in rootgrp.variables.items():
@@ -2780,7 +2783,8 @@ def build_LAKEPARM(LakeNC, min_elevs, areas, max_elevs, OrificEs, cen_lats, cen_
     longs[:] = numpy.array([cen_lons[lkid] for lkid in min_elev_keys])
     WeirEs[:] = numpy.array([WeirE_vals.get(lkid,0) for lkid in min_elev_keys])    # WierH is 0.9 of the distance between the low elevation and max lake elevation
     ifd[:] = ifd_Val
-    Dam[:] = dam_length
+    if WRFH_Version >= 5.2:
+        Dam[:] = dam_length
 
     # Close file
     rootgrp.close()

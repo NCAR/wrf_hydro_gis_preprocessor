@@ -449,27 +449,27 @@ if __name__ == '__main__':
     if args.gw_polys is not None:
         args.gw_polys = os.path.abspath(args.gw_polys)                          # Obtain absolute path for optional input file.
 
-    # Print information to screen
-    print('  Values that will be used in building this routing stack:')
-    print('    Input WPS Geogrid file: {0}'.format(args.in_Geogrid))
-    print('    Forecast Point CSV file: {0}'.format(args.in_CSV))
-    print('    Mask CHANNELGRID variable to forecast basins?: {0}'.format(args.basin_mask))
-    print('    Create reach-based routing (RouteLink) files?: {0}'.format(args.RB_routing))
-    print('    Lake polygon feature class: {0}'.format(args.in_reservoirs))
-    print('    Input high-resolution DEM: {0}'.format(args.inDEM))
-    print('    Regridding factor: {0}'.format(args.cellsize))
-    print('    Stream initiation threshold: {0}'.format(args.threshold))
-    print('    OVROUGHRTFAC parameter value: {0}'.format(args.ovroughrtfac_val))
-    print('    RETDEPRTFAC parameter value: {0}'.format(args.retdeprtfac_val))
-    print('    Input channel initiation start point feature class: {0}'.format(args.channel_starts))
-    print('    Input groundwater basin polygons: {0}'.format(args.gw_polys))
-    print('    Output ZIP file: {0}'.format(args.out_zip_file))
-
     if runGEOGRID_STANDALONE:
 
         # Configure logging
         logfile = args.out_zip_file.replace('.zip', '.log')
         tee = wrfh.TeeNoFile(logfile, 'w')
+
+        # Print information to screen
+        print('  Values that will be used in building this routing stack:')
+        print('    Input WPS Geogrid file: {0}'.format(args.in_Geogrid))
+        print('    Forecast Point CSV file: {0}'.format(args.in_CSV))
+        print('    Mask CHANNELGRID variable to forecast basins?: {0}'.format(args.basin_mask))
+        print('    Create reach-based routing (RouteLink) files?: {0}'.format(args.RB_routing))
+        print('    Lake polygon feature class: {0}'.format(args.in_reservoirs))
+        print('    Input high-resolution DEM: {0}'.format(args.inDEM))
+        print('    Regridding factor: {0}'.format(args.cellsize))
+        print('    Stream initiation threshold: {0}'.format(args.threshold))
+        print('    OVROUGHRTFAC parameter value: {0}'.format(args.ovroughrtfac_val))
+        print('    RETDEPRTFAC parameter value: {0}'.format(args.retdeprtfac_val))
+        print('    Input channel initiation start point feature class: {0}'.format(args.channel_starts))
+        print('    Input groundwater basin polygons: {0}'.format(args.gw_polys))
+        print('    Output ZIP file: {0}'.format(args.out_zip_file))
 
         # Create scratch directory for temporary outputs
         projdir = os.path.join(os.path.dirname(args.out_zip_file), 'scratchdir')

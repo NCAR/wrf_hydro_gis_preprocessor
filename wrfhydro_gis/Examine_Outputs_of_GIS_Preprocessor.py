@@ -80,12 +80,26 @@ def examine_outputs(out_folder, dellist=[], skipfiles=[]):
                 if LooseVersion(netCDF4.__version__) > LooseVersion('1.4.0'):
                     rootgrp.set_auto_mask(False)                                # Change masked arrays to old default (numpy arrays always returned)
 
-                # Using netCDF4 library - still need point2, DX, DY
-                if 'esri_pe_string' in rootgrp.variables[crsVar].__dict__:
-                    PE_string = rootgrp.variables[crsVar].esri_pe_string
-                elif 'spatial_ref' in rootgrp.variables[crsVar].__dict__:
-                    PE_string = rootgrp.variables[crsVar].spatial_ref
-                GT = rootgrp.variables[crsVar].GeoTransform.split(" ")[0:6]
+                # Old method which will crash if the CRS variable is not present
+                ##                if 'esri_pe_string' in rootgrp.variables[crsVar].__dict__:
+                ##                    PE_string = rootgrp.variables[crsVar].esri_pe_string
+                ##                elif 'spatial_ref' in rootgrp.variables[crsVar].__dict__:
+                ##                    PE_string = rootgrp.variables[crsVar].spatial_ref
+                ##                GT = rootgrp.variables[crsVar].GeoTransform.split(" ")[0:6]
+
+                # Added 4/14/2021 to allow for the absence of a coordinate system variable.
+                if crsVar in rootgrp.variables:
+                    crsNCVar = rootgrp.variables[crsVar]
+                    if 'esri_pe_string' in crsNCVar.__dict__:
+                        PE_string = crsNCVar.esri_pe_string
+                    elif 'spatial_ref' in crsNCVar.__dict__:
+                        PE_string = crsNCVar.spatial_ref
+                    GT = crsNCVar.GeoTransform.split(" ")[0:6]
+                else:
+                    # Create dummy variables to allow the script to continue
+                    PE_string = ''
+                    GT = [0, 1, 0, 0, 0, -1]
+
                 GT = tuple(float(item) for item in GT)
                 print('  GeoTransform: {0}'.format(GT))
                 print('  DX: {0}'.format(GT[1]))
@@ -100,14 +114,6 @@ def examine_outputs(out_folder, dellist=[], skipfiles=[]):
 
                         # Save to disk
                         OutGTiff = os.path.join(out_folder, variablename+suffix)# Output raster
-
-                        ##                        gdaltype = gdal_array.NumericTypeCodeToGDALTypeCode(ncvar.dtype)
-                        ##                        rows = ncvar.shape[ncvar.dimensions.index('y')]
-                        ##                        cols = ncvar.shape[ncvar.dimensions.index('x')]
-                        ##                        target_ds = gdal.GetDriverByName(RasterDriver).Create(OutGTiff, rows, cols, 1, gdaltype)
-                        ##                        CopyDatasetInfo(OutRaster, target_ds)
-                        ##                        target_ds.FlushCache()                                  #saves to disk!!
-                        ##                        target_ds = OutRaster = None
 
                         try:
                             target_ds = gdal.GetDriverByName(RasterDriver).CreateCopy(OutGTiff, OutRaster)
