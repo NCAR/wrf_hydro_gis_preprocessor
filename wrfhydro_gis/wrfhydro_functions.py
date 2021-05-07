@@ -3064,6 +3064,27 @@ def getxy(ds):
     print('    Conversion of input raster to XMap/YMap completed without error.')
     return xmap, ymap
 
+def flip_dim(array_dimensions, DimToFlip='south_north'):
+    '''
+    Function to flip a dimension based on provided dimension names.
+
+        array_dimensions - A list of dimension names for the input dataset
+        DimToFlip - The dimension to reverse.
+    '''
+
+    # Determine how to slice the array in order to fit into the netCDF
+    ind = [slice(None)] * len(array_dimensions)                                 # Build array slice as default (:)
+
+    # Flip a dimension if necessary
+    if DimToFlip in array_dimensions:
+        flipIdx = array_dimensions.index(DimToFlip)
+        ind[flipIdx] = slice(None,None,-1)
+        print("    Reversing order of dimension '{0}'".format(array_dimensions[flipIdx]))
+        del flipIdx
+    else:
+        print("    Requested dimension for reversal not found '{0}'.".format(DimToFlip))
+    return ind
+
 # --- End Functions --- #
 
 # --- Main Codeblock --- #
