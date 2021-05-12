@@ -78,6 +78,9 @@ dzs = [0.1, 0.3, 0.6, 1.0]          # Soil layer thickness top layer to bottom (
 missFloat = -1.e+36
 missInt = -9999
 
+#### Number of soil layers (e.g., 4)
+nsoil = 4
+
 #######################################################
 # Do not update below here.
 #######################################################
@@ -89,7 +92,6 @@ wedim = 'west_east'                                                             
 sndim = 'south_north'                                                           # Y-dimension name
 timedim = 'Time'                                                                # Time dimension name
 soildim = 'soil_layers_stag'                                                    # Soil layer dimension name
-soildimsize = 4
 keepDims = [timedim, 'month', sndim, wedim, soildim]                            # Dimensions to transfer from GEOGRID to WRFINPUT
 
 # Alter the names of variable names from GEOGRID (key) to WRFINPUT (value) variable names
@@ -241,7 +243,7 @@ def main_ncdfpy(geoFile, wrfinFile, lai=8, outNCType='NETCDF4'):
     for dimname, dim in rootgrp_in.dimensions.items():
         if dimname in keepDims:
             rootgrp_out.createDimension(dimname, len(dim))                      # Copy dimensions from the GEOGRID file
-    soildimension = rootgrp_out.createDimension(soildim, soildimsize)           # Add soil_layers_stag dimension
+    soildimension = rootgrp_out.createDimension(soildim, nsoil)           # Add soil_layers_stag dimension
 
     # Populate initial file with variables to keep from the input GEOGRID file
     for varname, ncvar in rootgrp_in.variables.items():
@@ -385,7 +387,7 @@ def main_xarray(geoFile, wrfinFile, lai=8, outNCType='NETCDF4'):
 
     # Add new variables based on the addVars list
     dims = dict(ncDS.dims)
-    dims.update({soildim:soildimsize})
+    dims.update({soildim:nsoil})
     newVars = []
     for (varname, units, varDims, missing_value, dtype) in addVars:
         da = xr.DataArray(data=numpy.empty(tuple([dims[dim] for dim in varDims]), dtype=dtype),
