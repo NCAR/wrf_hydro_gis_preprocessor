@@ -91,7 +91,8 @@ def examine_outputs(out_folder, dellist=[], skipfiles=[]):
                 if crsVar in rootgrp.variables:
                     crsNCVar = rootgrp.variables[crsVar]
                     if 'esri_pe_string' in crsNCVar.__dict__:
-                        PE_string = crsNCVar.esri_pe_string
+                        #PE_string = crsNCVar.esri_pe_string
+                        PE_string = crsNCVar.esri_pe_string.replace("'", '"')
                     elif 'spatial_ref' in crsNCVar.__dict__:
                         PE_string = crsNCVar.spatial_ref
                     GT = crsNCVar.GeoTransform.split(" ")[0:6]
