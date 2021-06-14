@@ -73,6 +73,7 @@ default_lksatfac_val = wrfh.lksatfac_val
 
 # Script options
 runGEOGRID_STANDALONE = True                                                    # Switch for testing the GEOGRID STANDALONE Pre-processing workflow
+cleanUp = False                                                                 # Switch to keep all temporary files (for troubleshooting)
 
 # Methods test switches
 coordMethod1 = True                                                             # Interpolate GEOGRID latitude and longitude coordinate arrays
@@ -281,7 +282,8 @@ def GEOGRID_STANDALONE(inGeogrid,
     # Step 4 - Hyrdo processing functions -- Whitebox
     rootgrp2, fdir, fac, channelgrid, fill, order = wrfh.WB_functions(rootgrp2, outDEM,
             projdir, threshold, ovroughrtfac_val, retdeprtfac_val, lksatfac_val, startPts=startPts)
-    wrfh.remove_file(outDEM)                                                    # Delete output DEM from disk
+    if cleanUp:
+        wrfh.remove_file(outDEM)                                                # Delete output DEM from disk
 
     # If the user provides forecast points as a CSV file, alter outputs accordingly
     if AddGages:
@@ -292,8 +294,9 @@ def GEOGRID_STANDALONE(inGeogrid,
     # Moved 10/9/2017 by KMS to allow masking routing files (LINKID, Route_Link, etc.) to forecast points if requested
     if routing:
         rootgrp2 = wrfh.Routing_Table(projdir, rootgrp2, fine_grid, fdir, channelgrid, fill, order, gages=AddGages)
-    wrfh.remove_file(fill)                                                      # Delete fill from disk
-    wrfh.remove_file(order)                                                     # Delete order from disk
+    if cleanUp:
+        wrfh.remove_file(fill)                                                  # Delete fill from disk
+        wrfh.remove_file(order)                                                 # Delete order from disk
 
     gridded = not routing                                                       # Flag for gridded routing
     if os.path.exists(in_lakes):
@@ -314,9 +317,10 @@ def GEOGRID_STANDALONE(inGeogrid,
         wrfh.build_GW_buckets(projdir, GWBasns, coarse_grid, Grid=True)
         GWBasns = None
 
-    wrfh.remove_file(fdir)                                                      # Delete fdir from disk
-    wrfh.remove_file(fac)                                                       # Delete fac from disk
-    wrfh.remove_file(channelgrid)                                               # Delete channelgrid from disk
+    if cleanUp:
+        wrfh.remove_file(fdir)                                                  # Delete fdir from disk
+        wrfh.remove_file(fac)                                                   # Delete fac from disk
+        wrfh.remove_file(channelgrid)                                           # Delete channelgrid from disk
     if routing:
         wrfh.remove_file(os.path.join(projdir, wrfh.stream_id))
 
@@ -325,7 +329,8 @@ def GEOGRID_STANDALONE(inGeogrid,
     print('Built output .zip file in {0: 3.2f} seconds.'.format(time.time()-tic1))  # Diagnotsitc print statement
 
     # Delete all temporary files
-    shutil.rmtree(projdir)
+    if cleanUp:
+        shutil.rmtree(projdir)
 
 # --- End Functions --- #
 

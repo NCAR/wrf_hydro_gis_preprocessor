@@ -95,7 +95,11 @@ def examine_outputs(out_folder, dellist=[], skipfiles=[]):
                         PE_string = crsNCVar.esri_pe_string.replace("'", '"')
                     elif 'spatial_ref' in crsNCVar.__dict__:
                         PE_string = crsNCVar.spatial_ref
-                    GT = crsNCVar.GeoTransform.split(" ")[0:6]
+                    if 'GeoTransform' in crsNCVar.__dict__:
+                        GT = crsNCVar.GeoTransform.split(" ")[0:6]
+                    else:
+                        print('  No GeoTransform attribute found. Setting to default.')
+                        GT = [0, 1, 0, 0, 0, -1]
                 else:
                     # Create dummy variables to allow the script to continue
                     PE_string = ''
