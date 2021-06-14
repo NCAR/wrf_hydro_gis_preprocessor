@@ -224,7 +224,7 @@ def fill_wrfinput_ncdfpy(rootgrp_in, rootgrp_out, laimo=8):
     del msk, veg, ncatts, iswater, isoilwater, soi, smois, smoisArr, tslb, tslbArr, tmn, zs
     return rootgrp_in, rootgrp_out
 
-def main_ncdfpy(geoFile, wrfinFile, lai=8, outNCType='NETCDF4'):
+def main_wrfinput_ncdfpy(geoFile, wrfinFile, lai=8, outNCType='NETCDF4'):
     '''
     This function is designed to build the wrfinput file using only the
     netCDF4-python library.
@@ -367,7 +367,7 @@ def fill_wrfinput_xarray(ds_in, laimo=8):
     del msk, veg, iswater, isoilwater, soi, smois, smoisArr, tslb, tslbArr, tmn, zs
     return ds_in
 
-def main_xarray(geoFile, wrfinFile, lai=8, outNCType='NETCDF4'):
+def main_wrfinput_xarray(geoFile, wrfinFile, lai=8, outNCType='NETCDF4'):
     '''
     This function is designed to build the wrfinput file using the xarray library.
     '''
@@ -461,7 +461,7 @@ if __name__ == '__main__':
     args.out_wrfinput = os.path.abspath(args.out_wrfinput)
 
     if method == 'netcdf4-python':
-        main_ncdfpy(args.in_Geogrid, args.out_wrfinput, lai=args.LAI_month, outNCType=outNCType)
+        main_wrfinput_ncdfpy(args.in_Geogrid, args.out_wrfinput, lai=args.LAI_month, outNCType=outNCType)
     elif method == 'xarray':
-        main_xarray(args.in_Geogrid, args.out_wrfinput, lai=args.LAI_month, outNCType=outNCType)
+        main_wrfinput_xarray(args.in_Geogrid, args.out_wrfinput, lai=args.LAI_month, outNCType=outNCType)
     print('  Process completed in {0:3.2f} seconds'.format(time.time()-tic))
