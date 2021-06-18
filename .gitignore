@@ -39,3 +39,7 @@ __pycache__
 ehthumbs.db
 Thumbs.db
 rom-history
+
+# Other #
+######################
+**/.idea/*
