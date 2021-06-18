@@ -121,16 +121,16 @@ minSo = 0.001                                                                   
 
 # Order-based Mannings N values for Strahler orders 1-10
 ManningsOrd = True                                                              # Switch to activate order-based Mannings N values
-Mannings_Order = {1:0.09,
-                    2:0.07,
-                    3:0.06,
-                    4:0.05,
-                    5:0.04,
-                    6:0.05,
-                    7:0.03,
-                    8:0.02,
-                    9:0.02,
-                    10:0.02}                                                    # Values from LR 7/01/2020
+Mannings_Order = {1:0.096,
+                    2:0.076,
+                    3:0.060,
+                    4:0.047,
+                    5:0.037,
+                    6:0.030,
+                    7:0.025,
+                    8:0.021,
+                    9:0.018,
+                    10:0.022}                                                    # Values based on CONUS JTTI research, originally from LR 7/01/2020, confirmed by JMC 6/18/21
 
 # Order-based Channel Side-Slope values for Strahler orders 1-10
 ChSSlpOrd = True                                                                # Switch to activate order-based Channel Side-Slope values
