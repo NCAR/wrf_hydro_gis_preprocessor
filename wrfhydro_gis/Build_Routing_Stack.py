@@ -166,7 +166,7 @@ def GEOGRID_STANDALONE(inGeogrid,
     # Print information provided to this function
     for key, value in locals().items():
         if callable(value) and value.__module__ == __name__:
-            print('      {0}: {1}'.format(key, val))
+            print('      {0}: {1}'.format(key, value))
 
     # Set some switches
     if os.path.exists(in_csv):

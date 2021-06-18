@@ -177,7 +177,9 @@ coeff = 1.0000                                                                  
 expon = 3.000                                                                   # Bucket model exponent
 zmax = 50.00                                                                    # Conceptual maximum depth of the bucket
 zinit = 10.0000                                                                 # Initial depth of water in the bucket model
+Loss = 0                                                                        # Not intended for Community WRF-Hydro
 maskGW_Basins = False                                                           # Option to mask the GWBASINS.nc grid to only active channels
+addLoss = False                                                                 # Option to add loss function parameter to groundwater buckets. Not intended for Community WRF-Hydro use.s
 ###################################################
 
 # Dictionaries of GEOGRID projections and projection names
@@ -1696,6 +1698,8 @@ def build_GWBUCKPARM(out_dir, cat_areas, cat_comids):
     Zinits = rootgrp.createVariable('Zinit', 'f4', (dim1))                  # Variable (32-bit floating point)
     Area_sqkms = rootgrp.createVariable('Area_sqkm', 'f4', (dim1))          # Variable (32-bit floating point)
     ComIDs = rootgrp.createVariable('ComID', 'i4', (dim1))                  # Variable (32-bit signed integer)
+    if addLoss:
+        LossF = rootgrp.createVariable('Loss', 'f4', (dim1))                  # Variable (32-bit signed integer)
 
     # Set variable descriptions
     Basins.long_name = 'Basin monotonic ID (1...n)'
@@ -1711,6 +1715,9 @@ def build_GWBUCKPARM(out_dir, cat_areas, cat_comids):
     Zmaxs.units = 'mm'
     Zinits.units = 'mm'
     Area_sqkms.units = 'km2'
+    if addLoss:
+        LossF.units = '-'
+        LossF.long_name = "Fraction of bucket output lost"
 
     # Fill in global attributes
     rootgrp.featureType = 'point'                                           # For compliance
@@ -1724,6 +1731,8 @@ def build_GWBUCKPARM(out_dir, cat_areas, cat_comids):
     Zinits[:] = zinit
     Area_sqkms[:] = numpy.array(cat_areas)
     ComIDs[:] = numpy.array(cat_comids)
+    if addLoss:
+        LossF[:] = Loss
 
     # Close file
     rootgrp.close()
