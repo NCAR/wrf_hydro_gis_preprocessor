@@ -81,6 +81,7 @@ CFConv = 'CF-1.5'                                                               
 # Output netCDF format
 outNCType = 'NETCDF4_CLASSIC'                                                   # Define the output netCDF version for RouteLink.nc and LAKEPARM.nc
 
+###################################################
 # Default output file names
 FullDom = 'Fulldom_hires.nc'                                                    # Default Full Domain routing grid nc file
 LDASFile = 'GEOGRID_LDASOUT_Spatial_Metadata.nc'                                # Defualt LDASOUT domain grid nc file
@@ -95,7 +96,9 @@ StreamSHP = 'streams.shp'                                                       
 LakesSHP = 'lakes.shp'                                                          # Default lakes shapefile name
 minDepthCSV = 'Lakes_with_minimum_depth.csv'                                    # Output file containing lakes with minimum depth enforced.
 basinRaster = 'GWBasins.tif'                                                    # Output file name for raster grid of groundwater bucket locations
+###################################################
 
+###################################################
 # Global Variables
 NoDataVal = -9999                                                               # Default NoData value for gridded variables
 walker = 3                                                                      # Number of cells to walk downstream before gaged catchment delineation
@@ -103,7 +106,9 @@ LK_walker = 3                                                                   
 z_limit = 1000.0                                                                # Maximum fill depth (z-limit) between a sink and it's pour point. None or float.
 x_limit = None                                                                  # Maximum breach length for breaching depressions, in pixels. None or Int/Float
 lksatfac_val = 1000.0                                                           # Default LKSATFAC value (unitless coefficient)
+###################################################
 
+###################################################
 # Channel Routing default parameters for the RouteLink file.
 Qi = 0                                                                          # Initial Flow in link (cms)
 MusK = 3600                                                                     # Muskingum routing time (s)
@@ -114,6 +119,47 @@ BtmWdth = 5                                                                     
 Kc = 0                                                                          # Channel loss parameter (mm/hour), New for v1.2
 minSo = 0.001                                                                   # Minimum slope
 
+# Order-based Mannings N values for Strahler orders 1-10
+ManningsOrd = True                                                              # Switch to activate order-based Mannings N values
+Mannings_Order = {1:0.09,
+                    2:0.07,
+                    3:0.06,
+                    4:0.05,
+                    5:0.04,
+                    6:0.05,
+                    7:0.03,
+                    8:0.02,
+                    9:0.02,
+                    10:0.02}                                                    # Values from LR 7/01/2020
+
+# Order-based Channel Side-Slope values for Strahler orders 1-10
+ChSSlpOrd = True                                                                # Switch to activate order-based Channel Side-Slope values
+Mannings_ChSSlp = {1:0.03,
+                    2:0.03,
+                    3:0.03,
+                    4:0.04,
+                    5:0.04,
+                    6:0.04,
+                    7:0.04,
+                    8:0.04,
+                    9:0.05,
+                    10:0.10}                                                    # Values from LR 7/01/2020
+
+# Order-based Bottom-width values for Strahler orders 1-10
+BwOrd = True                                                                    # Switch to activate order-based Bottom-width values
+Mannings_Bw = {1:1.6,
+               2:2.4,
+               3:3.5,
+               4:5.3,
+               5:7.4,
+               6:11.,
+               7:14.
+               8:16.,
+               9:26.,
+               10:110.}                                                         # Values from LR 7/01/2020
+###################################################
+
+###################################################
 #Default Lake Routing parameters
 OrificeC = 0.1                                                                  # Default orifice coefficient (0=closed, 1=open)
 OrificA = 1.0                                                                   # Default orifice area (square meters)
@@ -123,13 +169,16 @@ ifd_Val = 0.90                                                                  
 minDepth = 1.0                                                                  # Minimum active lake depth for lakes with no elevation variation
 ChannelLakeCheck = True                                                         # Ensure (True) lakes intersect the channel network.
 dam_length = 10.0                                                               # Default length of the dam, multiplier on weir length
+###################################################
 
+###################################################
 # Default groundwater bucket (GWBUCKPARM) parameters
 coeff = 1.0000                                                                  # Bucket model coefficient
 expon = 3.000                                                                   # Bucket model exponent
 zmax = 50.00                                                                    # Conceptual maximum depth of the bucket
 zinit = 10.0000                                                                 # Initial depth of water in the bucket model
 maskGW_Basins = False                                                           # Option to mask the GWBASINS.nc grid to only active channels
+###################################################
 
 # Dictionaries of GEOGRID projections and projection names
 #   See http://www.mmm.ucar.edu/wrf/users/docs/user_guide_V3/users_guide_chap3.htm#_Description_of_the_1
@@ -162,6 +211,7 @@ pointSR = 4326                                                                  
 sphere_radius = 6370000.0                                                       # Radius of sphere to use (WRF Default = 6370000.0m)
 #wkt_text = "GEOGCS['GCS_Sphere_CUSTOM',DATUM['D_Sphere',SPHEROID['Sphere',%s,0.0]],PRIMEM['Greenwich',0.0],UNIT['Degree',0.0174532925199433]];-400 -400 1000000000;-100000 10000;-100000 10000;8.99462786704589E-09;0.001;0.001;IsHighPrecision" %sphere_radius
 
+###################################################
 # Temporary output file names for Whitebox outputs
 fill_depressions = "fill_depressions.tif"
 dir_d8 = "dir_d8.tif"
@@ -174,6 +224,7 @@ watersheds = "watersheds.tif"                                                   
 start_pts_temp = 'Projected_start_points.shp'                                   # Channel initiation points projected to model CRS
 stream_id = "stream_id.tif"                                                     # Stream link ID raster
 streams_vector = "streams.shp"                                                  # Stream vector shapefile
+###################################################
 
 ###################################################
 # Dimension names to be used to identify certain known dimensions
@@ -2379,12 +2430,27 @@ def build_RouteLink(RoutingNC, order, From_To, NodeElev, NodesLL, NodesXY, Lengt
     Qis[:] = Qi
     MusKs[:] = MusK
     MusXs[:] = MusX
-    ns[:] = n
-    ChSlps[:] = ChSlp
-    BtmWdths[:] = BtmWdth
     Times[:] = 0
     Kcs[:] = Kc
     #LakeDis[:] = NoDataVal                                                      # Fill with default nodata value. Disabled to keep all values uninitialized
+
+    # Apply order-based Mannings N values according to global dictionary "Mannings_Order"
+    if ManningsOrd:
+        ns[:] = numpy.array([Mannings_Order[item] for item in orders[:]])
+    else:
+        ns[:] = n
+
+    # Apply order-based Channel Side-slope values according to global dictionary "Mannings_Order"
+    if ChSSlpOrd:
+        ChSlps[:] = numpy.array([Mannings_ChSSlp[item] for item in orders[:]])
+    else:
+        ChSlps[:] = ChSlp
+
+    # Apply order-based bottom-width values according to global dictionary "Mannings_Order"
+    if BwOrd:
+        BtmWdths[:] = numpy.array([Mannings_Bw[item] for item in orders[:]])
+    else:
+        BtmWdths[:] = BtmWdth
 
     # Added 10/10/2017 by KMS to include user-supplied gages in reach-based routing files
     if gageDict is not None:
