@@ -2096,7 +2096,8 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
     if not startPts:
         # Create stream channel raster according to threshold
         print('    Flow accumulation will be thresholded to build channel pixels.')
-        wbt.extract_streams(flow_acc, streams, threshold, zero_background=False)
+        #wbt.extract_streams(flow_acc, streams, threshold, zero_background=False)
+        wbt.extract_streams(flow_acc, streams, threshold, zero_background=True)
 
     if startPts is not None:
         # Added 8/14/2020 to use a vector of points to seed the channelgrid
@@ -2123,12 +2124,13 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
     # Export stream channel raster
     streams_file = os.path.join(projdir, streams)
     strm_arr, ndv = return_raster_array(streams_file)
+    #strm_arr[strm_arr==ndv] = NoDataVal
+    strm_arr[strm_arr == 0] = NoDataVal
     if not startPts:
         strm_arr[strm_arr==1] = 0
     if startPts is not None:
         # Added 10/6/2020 to reclassify results of trace_downslope_flowpaths
         strm_arr[strm_arr!=ndv] = 0
-    strm_arr[strm_arr==ndv] = NoDataVal
     rootgrp.variables['CHANNELGRID'][:] = strm_arr
     print('    Process: CHANNELGRID written to output netCDF.')
     del strm_arr, ndv, flow_acc
@@ -2889,6 +2891,7 @@ def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, 
     """
     #(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield, Gridded) = (rootgrp2, projdir, fac, in_lakes, fine_grid, None, gridded)
     tic1 = time.time()                                                          # Set timer
+    subsetLakes = True                                                          # Option to eliminate lakes that do not intersect channel network
     print('      Adding reservoirs to routing stack.')
     print('      Gridded: {0}'.format(Gridded))
 
@@ -2913,7 +2916,6 @@ def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, 
         wgs84_proj.SetAxisMappingStrategy(osgeo.osr.OAMS_TRADITIONAL_GIS_ORDER)
     coordTrans = osr.CoordinateTransformation(grid_obj.proj, wgs84_proj)        # Transformation from grid projection to WGS84
     coordTrans_inv = osr.CoordinateTransformation(wgs84_proj, grid_obj.proj)    # Transformation from WGS84 to grid projection
-
 
     # Use extent of the template raster to add a feature layer of lake polygons
     geom = grid_obj.boundarySHP('', 'MEMORY')                                   # Get domain extent for cliping geometry
@@ -2974,7 +2976,6 @@ def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, 
     # Code-block to eliminate lakes that do not coincide with active channel cells
     strm_arr = rootgrp.variables['CHANNELGRID'][:]                              # Read channel grid array from Fulldom
     lake_uniques = numpy.unique(Lake_arr[Lake_arr!=NoDataVal])
-    subsetLakes = True                                                          # Option to eliminate lakes that do not intersect channel network
     if subsetLakes:
         Lk_chan = {lake:strm_arr[numpy.logical_and(Lake_arr==lake, strm_arr==0)].shape[0]>0 for lake in lake_uniques}   # So slow...
         old_Lk_count = lake_uniques.shape[0]
@@ -3109,7 +3110,6 @@ def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, 
     build_LAKEPARM(LakeNC, min_elevs, areas, max_elevs, OrificEs, cen_lats, cen_lons, WeirE_vals)
     print('    Lake parameter table created without error in {0: 3.2f} seconds.'.format(time.time()-tic1))
     return rootgrp
-
 
 def getxy(ds):
     """
