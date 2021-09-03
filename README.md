@@ -20,7 +20,7 @@ If you are using Anaconda, creating a new, clean 'wrfh_gis_env' environment with
 
 * In your conda shell, add one necessary channel (conda-forge) and then download the component libraries from the Anaconda cloud:
   + `conda config --add channels conda-forge`
-  + `conda create -n wrfh_gis_env -c conda-forge python=3.6 gdal netCDF4 numpy pyproj xarray whitebox=2.0.0`
+  + `conda create -n wrfh_gis_env -c conda-forge python=3.6 gdal netCDF4 numpy pyproj whitebox=1.5.0`
   
 * To activate this new environment, type the following at the conda prompt
   + `activate wrfh_gis_env`
