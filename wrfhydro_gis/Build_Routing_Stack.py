@@ -73,7 +73,7 @@ default_lksatfac_val = wrfh.lksatfac_val
 
 # Script options
 runGEOGRID_STANDALONE = True                                                    # Switch for testing the GEOGRID STANDALONE Pre-processing workflow
-cleanUp = False                                                                 # Switch to keep all temporary files (for troubleshooting)
+cleanUp = True                                                                 # Switch to keep all temporary files (for troubleshooting)
 
 # Methods test switches
 coordMethod1 = True                                                             # Interpolate GEOGRID latitude and longitude coordinate arrays

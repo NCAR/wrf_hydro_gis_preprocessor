@@ -1929,6 +1929,7 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
     fill_deps = True                                    # Option to Fill Depressions with z_limit
     breach_deps = False                                 # Option to Breach Depressions
     breach_deps_LC = False                              # Option to use Breach Depressions (Least Cost)
+    zero_background_stream_order = True                 # 2021/09/24 Adding option for specifying zero-background as output of stream order tools
 
     # Temporary output files
     flow_acc = "flow_acc.tif"
@@ -2096,8 +2097,7 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
     if not startPts:
         # Create stream channel raster according to threshold
         print('    Flow accumulation will be thresholded to build channel pixels.')
-        #wbt.extract_streams(flow_acc, streams, threshold, zero_background=False)
-        wbt.extract_streams(flow_acc, streams, threshold, zero_background=True)
+        wbt.extract_streams(flow_acc, streams, threshold, zero_background=zero_background_stream_order)
 
     if startPts is not None:
         # Added 8/14/2020 to use a vector of points to seed the channelgrid
@@ -2115,7 +2115,7 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
         pt_layer = pt_ds = fieldNames = out_ds = geom = None
 
         print('    Flow accumulation will be weighted using input channel initiation points.')
-        wbt.trace_downslope_flowpaths(temp_pts, dir_d8, streams, esri_pntr=esri_pntr, zero_background=False)
+        wbt.trace_downslope_flowpaths(temp_pts, dir_d8, streams, esri_pntr=esri_pntr, zero_background=zero_background_stream_order)
 
         driver = ogr.Open(temp_pts).GetDriver()
         driver.DeleteDataSource(temp_pts)                                       # Delete input file
@@ -2124,8 +2124,17 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
     # Export stream channel raster
     streams_file = os.path.join(projdir, streams)
     strm_arr, ndv = return_raster_array(streams_file)
-    #strm_arr[strm_arr==ndv] = NoDataVal
-    strm_arr[strm_arr == 0] = NoDataVal
+    strm_arr[strm_arr==ndv] = NoDataVal
+    if zero_background_stream_order:
+        #strm_arr[strm_arr<-1] = NoDataVal               # Added 9/24/2021 as a test
+        #strm_arr[strm_arr>20] = NoDataVal               # Added 9/24/2021 as a test
+        strm_arr[strm_arr == 0] = NoDataVal
+
+        # Must set NoData in this file because it is used later by reach-based routing routine.
+        ds = gdal.Open(streams_file, 1)
+        ds.GetRasterBand(1).SetNoDataValue(0)                    # Set noData
+        ds = None
+
     if not startPts:
         strm_arr[strm_arr==1] = 0
     if startPts is not None:
@@ -2136,9 +2145,16 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
     del strm_arr, ndv, flow_acc
 
     # Process: Stream Order
-    wbt.strahler_stream_order(dir_d8, streams, strahler, esri_pntr=esri_pntr, zero_background=False)
+    wbt.strahler_stream_order(dir_d8, streams, strahler, esri_pntr=esri_pntr, zero_background=zero_background_stream_order)
     strahler_file = os.path.join(projdir, strahler)
     strahler_arr, ndv = return_raster_array(strahler_file)
+    if zero_background_stream_order:
+        strahler_arr[strahler_arr==0] = NoDataVal
+
+        # Must set NoData in this file because it is used later by reach-based routing routine.
+        ds = gdal.Open(strahler_file, 1)
+        ds.GetRasterBand(1).SetNoDataValue(0)                    # Set noData
+        ds = None
 
     # -9999 does not fit in the 8-bit types, so it gets put in as -15 by netCDF4 for some reason
     strahler_arr[strahler_arr==ndv] = NoDataVal
@@ -2567,7 +2583,7 @@ def Routing_Table(projdir, rootgrp, grid_obj, fdir, strm, Elev, Strahler, gages=
 
     # Find any LINKID reach ID values that did not get transferred to the stream vector file.
     # These are typically single-cell channel cells on the edge of the grid.
-    ds = ogr.Open(os.path.join(projdir, streams_vector))
+    ds = ogr.Open(streams_vector_file)
     lyr = ds.GetLayer(0)                                               # Get the 'layer' object from the data source
     vector_reach_IDs = numpy.unique([feature.GetField('STRM_VAL') for feature in lyr])
     print('        Found {0} unique IDs in stream vector layer.'.format(len(vector_reach_IDs)))
