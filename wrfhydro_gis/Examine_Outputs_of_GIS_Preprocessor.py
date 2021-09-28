@@ -27,19 +27,12 @@ from distutils.version import LooseVersion
 
 # Import additional modules
 import netCDF4
+import osr
 import gdal
 from osgeo import gdal_array
 from gdalnumeric import *                                                       # Assists in using BandWriteArray, BandReadAsArray, and CopyDatasetInfo
 from argparse import ArgumentParser
 from pathlib import Path
-
-try:
-    if sys.version_info >= (3, 0):
-        from osgeo import osr
-    else:
-        import osr
-except:
-    sys.exit('ERROR: cannot find GDAL/OGR modules')
 
 # Import function library into namespace. Must exist in same directory as this script.
 from wrfhydro_functions import (LK_nc, RT_nc, GW_nc, LDASFile, crsVar,

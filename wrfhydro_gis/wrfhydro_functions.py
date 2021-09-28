@@ -40,24 +40,15 @@ import platform                                                                 
 #os.environ["OGR_WKT_PRECISION"] = "5"                                           # Change the precision of coordinates
 
 # Import Additional Modules
+import ogr
+import osr
 import gdal
 import osgeo
+import gdalconst
+from gdalnumeric import *                                                       # Assists in using BandWriteArray, BandReadAsArray, and CopyDatasetInfo
 from osgeo import gdal_array
 import netCDF4
 import numpy
-
-try:
-    if sys.version_info >= (3, 0):
-        from osgeo import ogr
-        from osgeo import osr
-        from osgeo import gdalconst
-    else:
-        import ogr
-        import osr
-        import gdalconst
-except:
-    sys.exit('ERROR: cannot find GDAL/OGR modules')
-from gdalnumeric import *                                                       # Assists in using BandWriteArray, BandReadAsArray, and CopyDatasetInfo
 
 # Import whitebox
 from whitebox.WBT.whitebox_tools import WhiteboxTools

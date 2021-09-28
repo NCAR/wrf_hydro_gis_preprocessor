@@ -32,17 +32,10 @@ from argparse import ArgumentParser
 import platform                                                                 # Added 8/20/2020 to detect OS
 
 # Import Additional Modules
+import osr
 import gdal
 from gdalnumeric import *
 import netCDF4
-
-try:
-    if sys.version_info >= (3, 0):
-        from osgeo import osr
-    else:
-        import osr
-except:
-    sys.exit('ERROR: cannot find GDAL/OGR modules')
 
 # Import function library into namespace. Must exist in same directory as this script.
 import wrfhydro_functions as wrfh                                               # Function script packaged with this toolbox

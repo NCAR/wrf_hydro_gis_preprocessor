@@ -25,16 +25,9 @@ import time
 
 # Import additional modules
 import netCDF4
+import ogr
 from argparse import ArgumentParser
 from pathlib import Path
-
-try:
-    if sys.version_info >= (3, 0):
-        from osgeo import ogr
-    else:
-        import ogr
-except:
-    sys.exit('ERROR: cannot find GDAL/OGR modules')
 
 # Import function library into namespace. Must exist in same directory as this script.
 #import wrfhydro_functions as wrfh                                               # Function script packaged with this toolbox

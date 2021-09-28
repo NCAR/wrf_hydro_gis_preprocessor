@@ -24,18 +24,10 @@ import time
 import numpy
 
 # Import additional modules
+import ogr
+import osr
 from argparse import ArgumentParser
 from pathlib import Path
-
-try:
-    if sys.version_info >= (3, 0):
-        from osgeo import ogr
-        from osgeo import osr
-    else:
-        import ogr
-        import osr
-except:
-    sys.exit('ERROR: cannot find GDAL/OGR modules')
 
 # Import function library into namespace. Must exist in same directory as this script.
 from wrfhydro_functions import CSV_to_SHP                                       # Function script packaged with this toolbox
