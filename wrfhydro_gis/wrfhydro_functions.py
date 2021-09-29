@@ -40,23 +40,21 @@ import platform                                                                 
 #os.environ["OGR_WKT_PRECISION"] = "5"                                           # Change the precision of coordinates
 
 # Import Additional Modules
+import gdal
+import osgeo
+from osgeo import gdal_array
 import netCDF4
 import numpy
+
 try:
     if sys.version_info >= (3, 0):
-        from osgeo import gdal
-        from osgeo import osgeo
         from osgeo import ogr
         from osgeo import osr
         from osgeo import gdalconst
-        from osgeo import gdal_array
     else:
-        import gdal
-        import osgeo
         import ogr
         import osr
         import gdalconst
-        from osgeo import gdal_array
 except:
     sys.exit('ERROR: cannot find GDAL/OGR modules')
 from gdalnumeric import *                                                       # Assists in using BandWriteArray, BandReadAsArray, and CopyDatasetInfo

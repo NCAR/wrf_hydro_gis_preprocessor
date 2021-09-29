@@ -26,6 +26,7 @@ import numpy
 # Import additional modules
 from argparse import ArgumentParser
 from pathlib import Path
+
 try:
     if sys.version_info >= (3, 0):
         from osgeo import ogr
