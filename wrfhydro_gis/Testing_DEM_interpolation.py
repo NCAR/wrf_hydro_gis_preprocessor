@@ -32,8 +32,14 @@ from distutils.version import LooseVersion
 from argparse import ArgumentParser
 
 # Import Additional Modules
-import gdal
 import netCDF4
+try:
+    if sys.version_info >= (3, 0):
+        from osgeo import gdal
+    else:
+        import gdal
+except:
+    sys.exit('ERROR: cannot find GDAL/OGR modules')
 
 # Import function library into namespace. Must exist in same directory as this script.
 #wrfhGIS_lib = r''
