@@ -40,27 +40,29 @@ import platform                                                                 
 #os.environ["OGR_WKT_PRECISION"] = "5"                                           # Change the precision of coordinates
 
 # Import Additional Modules
-import gdal
 import osgeo
-from osgeo import gdal_array
+from osgeo.gdal_array import *
 import netCDF4
 import numpy
 
 try:
     if sys.version_info >= (3, 0):
+        from osgeo import gdal
         from osgeo import ogr
         from osgeo import osr
         from osgeo import gdalconst
     else:
+        import gdal
         import ogr
         import osr
         import gdalconst
 except:
     sys.exit('ERROR: cannot find GDAL/OGR modules')
-from gdalnumeric import *                                                       # Assists in using BandWriteArray, BandReadAsArray, and CopyDatasetInfo
+#from gdalnumeric import *                                                       # Assists in using BandWriteArray, BandReadAsArray, and CopyDatasetInfo
 
 # Import whitebox
-from whitebox.WBT.whitebox_tools import WhiteboxTools
+#from whitebox.WBT.whitebox_tools import WhiteboxTools
+from whitebox.whitebox_tools import WhiteboxTools
 
 # Module options
 gdal.UseExceptions()                                                            # this allows GDAL to throw Python Exceptions
@@ -601,7 +603,7 @@ class WRF_Hydro_Grid:
             if driver is None:
                 print('    {0} driver not available.'.format('Memory'))
 
-            gdaltype = gdal_array.NumericTypeCodeToGDALTypeCode(in_arr.dtype)
+            gdaltype = NumericTypeCodeToGDALTypeCode(in_arr.dtype)
             print('    GDAL Data type derived from input array: {0} ({1})'.format(gdaltype, in_arr.dtype))
             if not gdaltype:
                 print('    The input numpy array type does not have a compatible GDAL data type. Assuming int32.')
@@ -832,7 +834,7 @@ def remove_file(in_file):
     return
 
 def flip_grid(array):
-    '''This function takes a three dimensional array and flips it up-down to
+    '''This function takes a two dimensional array (x,y) and flips it up-down to
     correct for the netCDF storage of these grids.'''
     array = array[:, ::-1]                                                     # Flip 2+D grid up-down
     return array
@@ -971,7 +973,7 @@ def numpy_to_Raster(in_arr, proj_in=None, DX=1, DY=-1, x00=0, y00=0, quiet=True)
             print('    {0} driver not available.'.format('Memory'))
 
         # Set up the dataset and define projection/raster info
-        gdaltype = gdal_array.NumericTypeCodeToGDALTypeCode(in_arr.dtype)
+        gdaltype = NumericTypeCodeToGDALTypeCode(in_arr.dtype)
         DataSet = driver.Create('', in_arr.shape[1], in_arr.shape[0], 1, gdaltype) # the '1' is for band 1.
         if proj_in:
             DataSet.SetProjection(proj_in.ExportToWkt())
