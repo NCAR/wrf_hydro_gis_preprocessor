@@ -27,19 +27,23 @@ from distutils.version import LooseVersion
 
 # Import additional modules
 import netCDF4
-import gdal
-from gdalnumeric import *
-from osgeo import gdal_array
 from argparse import ArgumentParser
 from pathlib import Path
+from distutils.version import LooseVersion
+import osgeo
 
 try:
-    if sys.version_info >= (3, 0):
+    if LooseVersion(osgeo.__version__) > LooseVersion('3.0.0'):
+        from osgeo import gdal
         from osgeo import osr
+        from osgeo.gdal_array import *
     else:
+        import gdal
         import osr
+        from gdal_array import *
 except:
     sys.exit('ERROR: cannot find GDAL/OGR modules')
+#from gdalnumeric import *
 
 # Import function library into namespace. Must exist in same directory as this script.
 from wrfhydro_functions import (WRF_Hydro_Grid, projdict, flip_grid,

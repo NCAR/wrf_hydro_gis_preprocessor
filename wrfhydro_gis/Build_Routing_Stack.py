@@ -32,15 +32,18 @@ from argparse import ArgumentParser
 import platform                                                                 # Added 8/20/2020 to detect OS
 
 # Import Additional Modules
-import gdal
-from gdalnumeric import *
 import netCDF4
+import osgeo
 
 try:
-    if sys.version_info >= (3, 0):
+    if LooseVersion(osgeo.__version__) > LooseVersion('3.0.0'):
         from osgeo import osr
+        from osgeo import gdal
+        from osgeo.gdal_array import *
     else:
         import osr
+        import gdal
+        from gdal_array import *
 except:
     sys.exit('ERROR: cannot find GDAL/OGR modules')
 

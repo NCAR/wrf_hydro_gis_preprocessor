@@ -35,30 +35,31 @@ from zipfile import ZipFile, ZipInfo
 from collections import defaultdict                                             # Added 09/03/2015 Needed for topological sorting algorthm
 from itertools import takewhile, count                                          # Added 09/03/2015 Needed for topological sorting algorthm
 import platform                                                                 # Added 8/20/2020 to detect OS
+from distutils.version import LooseVersion
 
 # Change any environment variables here
 #os.environ["OGR_WKT_PRECISION"] = "5"                                           # Change the precision of coordinates
 
 # Import Additional Modules
-import osgeo
-from osgeo.gdal_array import *
 import netCDF4
 import numpy
+import osgeo
 
 try:
-    if sys.version_info >= (3, 0):
+    if LooseVersion(osgeo.__version__) > LooseVersion('3.0'):
         from osgeo import gdal
         from osgeo import ogr
         from osgeo import osr
         from osgeo import gdalconst
+        from osgeo.gdal_array import *                                          # Assists in using BandWriteArray, BandReadAsArray, and CopyDatasetInfo
     else:
         import gdal
         import ogr
         import osr
         import gdalconst
+        from gdal_array import *                                                # Assists in using BandWriteArray, BandReadAsArray, and CopyDatasetInfo
 except:
     sys.exit('ERROR: cannot find GDAL/OGR modules')
-#from gdalnumeric import *                                                       # Assists in using BandWriteArray, BandReadAsArray, and CopyDatasetInfo
 
 # Import whitebox
 #from whitebox.WBT.whitebox_tools import WhiteboxTools

@@ -24,13 +24,16 @@ import sys
 import time
 
 # Import additional modules
-import gdal
 from argparse import ArgumentParser
+from distutils.version import LooseVersion
+import osgeo
 
 try:
-    if sys.version_info >= (3, 0):
+    if LooseVersion(osgeo.__version__) > LooseVersion('3.0.0'):
+        from osgeo import gdal
         from osgeo import osr
     else:
+        import gdal
         import osr
 except:
     sys.exit('ERROR: cannot find GDAL/OGR modules')

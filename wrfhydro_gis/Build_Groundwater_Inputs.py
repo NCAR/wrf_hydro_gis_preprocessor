@@ -29,9 +29,17 @@ from distutils.version import LooseVersion
 
 # Import additional modules
 import netCDF4
-import gdal
 from argparse import ArgumentParser
 from pathlib import Path
+import osgeo
+
+try:
+    if LooseVersion(osgeo.__version__) > LooseVersion('3.0.0'):
+        from osgeo import gdal
+    else:
+        import gdal
+except:
+    sys.exit('ERROR: cannot find GDAL/OGR modules')
 
 # Import function library into namespace. Must exist in same directory as this script.
 #import wrfhydro_functions as wrfh                                               # Function script packaged with this toolbox

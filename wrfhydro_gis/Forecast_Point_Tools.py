@@ -26,9 +26,11 @@ import numpy
 # Import additional modules
 from argparse import ArgumentParser
 from pathlib import Path
+from distutils.version import LooseVersion
+import osgeo
 
 try:
-    if sys.version_info >= (3, 0):
+    if LooseVersion(osgeo.__version__) > LooseVersion('3.0.0'):
         from osgeo import ogr
         from osgeo import osr
     else:
