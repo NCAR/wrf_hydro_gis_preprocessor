@@ -667,7 +667,7 @@ class WRF_Hydro_Grid:
         feature.SetGeometry(geometry)                                      # Make a feature from geometry object
         layer.CreateFeature(feature)
         print('  Done producing output vector polygon shapefile in {0: 3.2f} seconds'.format(time.time()-tic1))
-        datasource = myRing = feature = layer = None        # geometry
+        datasource = ring = feature = layer = None        # geometry
         return geometry
 
     def xy_to_grid_ij(self, x, y):
@@ -1195,6 +1195,7 @@ def project_Features(InputVector, outProj, clipGeom=None, geomType=None):
     polygon.
     '''
     tic1 = time.time()
+    trans = False
 
     # Get input vector information
     in_vect = ogr.Open(InputVector)                                             # Read the input vector file
@@ -1985,8 +1986,8 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
 
             # Optional elevation increment applied to flat areas in Breach Depressions and Fill Depressions tools
             # Appropriate values from 0.01 - 0.00001, None
-            #flat_increment = None                      # 0.0001
-            flat_increment = 0.0001                      # None
+            flat_increment = None                      # 0.0001
+            #flat_increment = 0.0001                      # None
 
             if fill_pits_bool:
                 wbt.fill_single_cell_pits(indem, fill_pits)

@@ -88,7 +88,10 @@ def build_geogrid_raster(in_nc, Variable, OutGTiff, out_Grid_fmt=out_fmt):
             sys.exit(1)
 
     # Enhancement to allow n-dimensional arrays, with max dimension size of 3.
-    array = subset_ncVar(rootgrp.variables[Variable], DimToFlip='south_north')
+    if grid_obj.isGeogrid:
+        array = subset_ncVar(rootgrp.variables[Variable], DimToFlip='south_north')
+    else:
+        array = subset_ncVar(rootgrp.variables[Variable], DimToFlip='')
     print('    Size of array being sent to raster: {0}'.format(array.shape))
 
     # Export numpy array to raster (up to 3D).
