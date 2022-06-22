@@ -12,7 +12,7 @@ setup(
     install_requires=[
         'gdal',
         'netcdf4==1.5.3',
-        'numpy==1.18.1',
+        'numpy==1.22.0',
         'pyproj==2.6.0',
         'whitebox==1.2.0'
     ],
