@@ -35,7 +35,8 @@ from zipfile import ZipFile, ZipInfo
 from collections import defaultdict                                             # Added 09/03/2015 Needed for topological sorting algorthm
 from itertools import takewhile, count                                          # Added 09/03/2015 Needed for topological sorting algorthm
 import platform                                                                 # Added 8/20/2020 to detect OS
-from distutils.version import LooseVersion
+#from distutils.version import LooseVersion
+from packaging.version import parse as LooseVersion                             # To avoid deprecation warnings
 
 # Change any environment variables here
 #os.environ["OGR_WKT_PRECISION"] = "5"                                           # Change the precision of coordinates
@@ -1917,7 +1918,7 @@ def force_edges_off_grid(fd_arr, ignore_vals=[]):
         print('    Could not corece all 0-value flow direction cells to flow off of the grid.')
     return fd_arr_out
 
-def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtfac_val, lksatfac_val, sink=False, startPts=None):
+def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtfac_val, lksatfac_val, sink=False, startPts=None, chmask=None):
     """
     This function is intended to produce the hydroglocial DEM corrections and derivitive
     products using the Whitebox tools suite.
@@ -1943,6 +1944,7 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
     breach_deps = False                                 # Option to Breach Depressions
     breach_deps_LC = False                              # Option to use Breach Depressions (Least Cost)
     zero_background_stream_order = True                 # 2021/09/24 Adding option for specifying zero-background as output of stream order tools
+    fill_depth_raster = False                           # 2022/10/05 - For diagnostics, we can opt to create a grid of fill depths.
 
     # Temporary output files
     flow_acc = "flow_acc.tif"
@@ -2071,6 +2073,11 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
                 fix_flats=fix_flats,
                 flat_increment=flat_increment)
 
+        if fill_depth_raster:
+            # Create a fill depth raster for diagnostic purposes
+            fill_depth_raster = 'Fill_Depth.tif'
+            wbt.subtract(fill_depressions, indem, fill_depth_raster)
+
         # This is the variable name for the output filled DEM
         fill_pits = fill_depressions
 
@@ -2080,7 +2087,7 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
         # Build the flow accumulation grid (used to populate FLOWACC in Fulldom_hires.nc)
         wbt.d8_flow_accumulation(fill_pits, flow_acc)
 
-    # Process: Fill DEM
+    # Process: Write hydrologically pre-processed DEM to Fulldom_hires.nc
     fill_pits_file = os.path.join(projdir, fill_pits)
     fill_arr, ndv = return_raster_array(fill_pits_file)
     fill_arr[fill_arr==ndv] = NoDataVal                                         # Replace raster NoData with WRF-Hydro NoData value
@@ -2134,13 +2141,41 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
         driver.DeleteDataSource(temp_pts)                                       # Delete input file
         del temp_pts
 
-    # Export stream channel raster
+    # Define the location for the stream raster grid
     streams_file = os.path.join(projdir, streams)
+
+    # Added 9/2/2022 - Option to mask the Channelgrid layer to a mask raster (1 or NoData on the routing grid)
+    if not chmask:
+        print('    No masking of CHANNELGRID will be performed.')
+    if chmask is not None:
+        print('    Masking CHANNELGRID to user-provided mask raster.')
+
+        # Open streams file in update mode
+        ds = gdal.Open(streams_file, gdalconst.GA_Update)
+        band = ds.GetRasterBand(1)
+        strm_arr = band.ReadAsArray()
+        ndv = band.GetNoDataValue()                                             # Obtain nodata value
+
+        # Open channelgrid mask file in read-only mode
+        ds_chgrid = gdal.Open(chmask, gdalconst.GA_ReadOnly)
+        band2 = ds_chgrid.GetRasterBand(1)
+        chmask_arr = band2.ReadAsArray()
+        chmask_ndv = band2.GetNoDataValue()                                             # Obtain nodata value
+        assert chmask_arr.shape == strm_arr.shape
+
+        # Set all values outside the mask to NoData
+        strm_arr[chmask_arr==chmask_ndv] = ndv
+
+        # Write changes back to file
+        BandWriteArray(ds.GetRasterBand(1), strm_arr)
+        stats = ds.GetRasterBand(1).GetStatistics(0,1)                          # Calculate statistics
+        ds = ds_chgrid = band = band1 = stats = None
+        del chmask_arr, chmask_ndv, strm_arr, ndv, ds, ds_chgrid, band, band1, stats
+
+    # Below this point are modifications to set CHANNELGRID into Fulldom_hires.nc format
     strm_arr, ndv = return_raster_array(streams_file)
     strm_arr[strm_arr==ndv] = NoDataVal
     if zero_background_stream_order:
-        #strm_arr[strm_arr<-1] = NoDataVal               # Added 9/24/2021 as a test
-        #strm_arr[strm_arr>20] = NoDataVal               # Added 9/24/2021 as a test
         strm_arr[strm_arr == 0] = NoDataVal
 
         # Must set NoData in this file because it is used later by reach-based routing routine.
@@ -2148,11 +2183,14 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
         ds.GetRasterBand(1).SetNoDataValue(0)                    # Set noData
         ds = None
 
+    # Modify the value of channels from 1 to 0 or from anything other than NoData to 0.
     if not startPts:
         strm_arr[strm_arr==1] = 0
     if startPts is not None:
         # Added 10/6/2020 to reclassify results of trace_downslope_flowpaths
         strm_arr[strm_arr!=ndv] = 0
+
+    # Write Channelgrid layer to Fulldom_hires.nc
     rootgrp.variables['CHANNELGRID'][:] = strm_arr
     print('    Process: CHANNELGRID written to output netCDF.')
     del strm_arr, ndv, flow_acc

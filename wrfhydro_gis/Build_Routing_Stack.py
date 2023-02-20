@@ -26,7 +26,8 @@ import sys
 import time
 import shutil
 import copy
-from distutils.version import LooseVersion
+#from distutils.version import LooseVersion
+from packaging.version import parse as LooseVersion                             # To avoid deprecation warnings
 import argparse
 from argparse import ArgumentParser
 import platform                                                                 # Added 8/20/2020 to detect OS
@@ -161,7 +162,8 @@ def GEOGRID_STANDALONE(inGeogrid,
                         ovroughrtfac_val = 1.0,
                         retdeprtfac_val = 1.0,
                         lksatfac_val = 1000.0,
-                        startPts = None):
+                        startPts = None,
+                        channel_mask = None):
     '''
     This function will validate input parameters and attempt to run the full routing-
     stack GIS pre-processing for WRF-Hydro. The inputs will be related to the domain,
@@ -291,7 +293,7 @@ def GEOGRID_STANDALONE(inGeogrid,
 
     # Step 4 - Hyrdo processing functions -- Whitebox
     rootgrp2, fdir, fac, channelgrid, fill, order = wrfh.WB_functions(rootgrp2, outDEM,
-            projdir, threshold, ovroughrtfac_val, retdeprtfac_val, lksatfac_val, startPts=startPts)
+            projdir, threshold, ovroughrtfac_val, retdeprtfac_val, lksatfac_val, startPts=startPts, chmask=channel_mask)
     if cleanUp:
         wrfh.remove_file(outDEM)                                                # Delete output DEM from disk
 
@@ -416,6 +418,11 @@ if __name__ == '__main__':
                         type=lambda x: is_valid_file(parser, x),
                         default=None,
                         help="Path to groundwater polygons feature class [OPTIONAL]")
+    parser.add_argument("--mask",
+                        dest="ch_mask",
+                        type=lambda x: is_valid_file(parser, x),
+                        default=None,
+                        help="Path to a routing grid raster with which to mask channels and channel-derived grids [OPTIONAL]")
 
     # If no arguments are supplied, print help message
     if len(sys.argv)==1:
@@ -463,7 +470,8 @@ if __name__ == '__main__':
         args.channel_starts = os.path.abspath(args.channel_starts)              # Obtain absolute path for optional input file.
     if args.gw_polys is not None:
         args.gw_polys = os.path.abspath(args.gw_polys)                          # Obtain absolute path for optional input file.
-
+    if args.ch_mask is not None:
+        args.ch_mask = os.path.abspath(args.ch_mask)                            # Obtain absolute path for optional input file.
     if runGEOGRID_STANDALONE:
 
         # Configure logging
@@ -484,6 +492,7 @@ if __name__ == '__main__':
         print('    RETDEPRTFAC parameter value: {0}'.format(args.retdeprtfac_val))
         print('    Input channel initiation start point feature class: {0}'.format(args.channel_starts))
         print('    Input groundwater basin polygons: {0}'.format(args.gw_polys))
+        print('    Input channelgrid mask raster: {0}'.format(args.ch_mask))
         print('    Output ZIP file: {0}'.format(args.out_zip_file))
 
         # Create scratch directory for temporary outputs
@@ -511,7 +520,8 @@ if __name__ == '__main__':
                             ovroughrtfac_val = args.ovroughrtfac_val,
                             retdeprtfac_val = args.retdeprtfac_val,
                             lksatfac_val = default_lksatfac_val,
-                            startPts = args.channel_starts)
+                            startPts = args.channel_starts,
+                            channel_mask = args.ch_mask)
         tee.close()
         del tee
     else:

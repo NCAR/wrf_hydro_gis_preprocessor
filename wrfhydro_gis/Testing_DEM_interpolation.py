@@ -28,7 +28,8 @@ sys.dont_write_bytecode = True
 import time
 import os
 import copy
-from distutils.version import LooseVersion
+#from distutils.version import LooseVersion
+from packaging.version import parse as LooseVersion                             # To avoid deprecation warnings
 from argparse import ArgumentParser
 
 # Import Additional Modules

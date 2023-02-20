@@ -29,7 +29,8 @@ from distutils.version import LooseVersion
 import netCDF4
 from argparse import ArgumentParser
 from pathlib import Path
-from distutils.version import LooseVersion
+#from distutils.version import LooseVersion
+from packaging.version import parse as LooseVersion                             # To avoid deprecation warnings
 import osgeo
 
 try:
@@ -47,7 +48,8 @@ except:
 
 # Import function library into namespace. Must exist in same directory as this script.
 from wrfhydro_functions import (WRF_Hydro_Grid, projdict, flip_grid,
-    numpy_to_Raster, wgs84_proj4, ReprojectCoords, outNCType, create_CF_NetCDF)
+    numpy_to_Raster, wgs84_proj4, ReprojectCoords, outNCType, create_CF_NetCDF,
+    Geogrid_MapVars)
 
 # Globals
 latlon_vars = True                                                              # Include LATITUDE and LONGITUDE 2D variables?
@@ -181,10 +183,10 @@ if __name__ == '__main__':
     rootgrp2 = netCDF4.Dataset(args.out_nc, 'w', format=outNCType)
     rootgrp2, grid_mapping = create_CF_NetCDF(fine_grid, rootgrp2, projdir,
             notes=processing_notes_SM, addLatLon=latlon_vars, latArr=latArr, lonArr=lonArr)
-    globalAtts = rootgrp.__dict__                                           # Read all global attributes into a dictionary
-    for item in wrfh.Geogrid_MapVars + ['DX', 'DY']:
+    globalAtts = rootgrp2.__dict__                                           # Read all global attributes into a dictionary
+    for item in Geogrid_MapVars + ['DX', 'DY']:
         if item in globalAtts:
-            rootgrp.setncattr(item, globalAtts[item])
+            rootgrp2.setncattr(item, globalAtts[item])
     rootgrp2.close()
 
     del rootgrp2, latArr, lonArr

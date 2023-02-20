@@ -25,7 +25,8 @@ import time
 import shutil
 import sys
 import copy
-from distutils.version import LooseVersion
+#from distutils.version import LooseVersion
+from packaging.version import parse as LooseVersion                             # To avoid deprecation warnings
 
 # Import additional modules
 import netCDF4

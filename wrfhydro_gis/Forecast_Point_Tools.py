@@ -26,7 +26,8 @@ import numpy
 # Import additional modules
 from argparse import ArgumentParser
 from pathlib import Path
-from distutils.version import LooseVersion
+#from distutils.version import LooseVersion
+from packaging.version import parse as LooseVersion                             # To avoid deprecation warnings
 import osgeo
 
 try:
