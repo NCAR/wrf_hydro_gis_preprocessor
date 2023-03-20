@@ -74,7 +74,7 @@ gdal.PushErrorHandler('CPLQuietErrorHandler')
 conda_env_path = os.path.join(os.path.dirname(sys.executable))
 if platform.system() == 'Windows':
     internal_datadir = os.path.join(conda_env_path, "Library", "share", "proj")
-elif platform.system() == 'Linux':
+elif platform.system() in ['Linux', 'Darwin']:
     internal_datadir = os.path.join(os.path.dirname(conda_env_path), "share", "proj")
 os.environ["PROJ_LIB"] = internal_datadir
 
