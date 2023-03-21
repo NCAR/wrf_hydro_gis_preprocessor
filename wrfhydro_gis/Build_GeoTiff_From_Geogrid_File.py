@@ -34,7 +34,6 @@ import time
 # Import Additional Modules
 import numpy
 import netCDF4
-#from distutils.version import LooseVersion
 from packaging.version import parse as LooseVersion                             # To avoid deprecation warnings
 from argparse import ArgumentParser
 from pathlib import Path

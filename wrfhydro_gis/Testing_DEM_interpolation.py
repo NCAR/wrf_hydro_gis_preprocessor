@@ -27,8 +27,7 @@ import sys
 sys.dont_write_bytecode = True
 import time
 import os
-import copy
-#from distutils.version import LooseVersion
+import copy as cpy
 from packaging.version import parse as LooseVersion                             # To avoid deprecation warnings
 from argparse import ArgumentParser
 
@@ -80,7 +79,7 @@ def interpolate_raster(in_Geogrid, inDEM, cellsize, out_file):
 
     # Build grid object
     coarse_grid = wrfh.WRF_Hydro_Grid(rootgrp)                                  # Instantiate a grid object
-    fine_grid = copy.copy(coarse_grid)                                          # Copy the grid object for modification
+    fine_grid = cpy.copy(coarse_grid)                                           # Copy the grid object for modification
     fine_grid.regrid(cellsize)                                             # Regrid to the desired nest ratio
     print('    Created projection definition from input NetCDF GEOGRID file.')
     print('    Proj4: {0}'.format(coarse_grid.proj4))                           # Print Proj.4 string to screen

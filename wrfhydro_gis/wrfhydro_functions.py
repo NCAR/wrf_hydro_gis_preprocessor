@@ -35,7 +35,6 @@ from zipfile import ZipFile, ZipInfo
 from collections import defaultdict                                             # Added 09/03/2015 Needed for topological sorting algorthm
 from itertools import takewhile, count                                          # Added 09/03/2015 Needed for topological sorting algorthm
 import platform                                                                 # Added 8/20/2020 to detect OS
-#from distutils.version import LooseVersion
 from packaging.version import parse as LooseVersion                             # To avoid deprecation warnings
 
 # Change any environment variables here

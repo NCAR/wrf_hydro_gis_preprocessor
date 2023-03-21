@@ -25,8 +25,7 @@ import os
 import sys
 import time
 import shutil
-import copy
-#from distutils.version import LooseVersion
+import copy as cpy
 from packaging.version import parse as LooseVersion                             # To avoid deprecation warnings
 import argparse
 from argparse import ArgumentParser
@@ -199,7 +198,7 @@ def GEOGRID_STANDALONE(inGeogrid,
     if LooseVersion(netCDF4.__version__) > LooseVersion('1.4.0'):
         rootgrp.set_auto_mask(False)                                            # Change masked arrays to old default (numpy arrays always returned)
     coarse_grid = wrfh.WRF_Hydro_Grid(rootgrp)                                  # Instantiate a grid object
-    fine_grid = copy.copy(coarse_grid)                                          # Copy the grid object for modification
+    fine_grid = cpy.copy(coarse_grid)                                           # Copy the grid object for modification
     fine_grid.regrid(regridFactor)                                              # Regrid to the coarse grid
     print('    Created projection definition from input NetCDF GEOGRID file.')
     print('    Proj4: {0}'.format(coarse_grid.proj4))                           # Print Proj.4 string to screen

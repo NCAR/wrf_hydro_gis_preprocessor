@@ -27,7 +27,6 @@ import time
 import netCDF4
 from argparse import ArgumentParser
 from pathlib import Path
-#from distutils.version import LooseVersion
 from packaging.version import parse as LooseVersion                             # To avoid deprecation warnings
 import osgeo
 

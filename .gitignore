@@ -43,3 +43,5 @@ rom-history
 # Other #
 ######################
 **/.idea/*
+/wrfhydro_gis/Unused_Code.py
+/wrfhydro_gis/Testing_DEM_interpolation.py

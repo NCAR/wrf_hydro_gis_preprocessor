@@ -24,8 +24,6 @@ import os
 import time
 import shutil
 import sys
-import copy
-#from distutils.version import LooseVersion
 from packaging.version import parse as LooseVersion                             # To avoid deprecation warnings
 
 # Import additional modules
@@ -146,8 +144,6 @@ if __name__ == '__main__':
         rootgrp2.set_auto_mask(False)                                            # Change masked arrays to old default (numpy arrays always returned)
     coarse_grid = WRF_Hydro_Grid(rootgrp1)                                 # Instantiate a grid object for the coarse grid
     fine_grid = WRF_Hydro_Grid(rootgrp2)                                   # Instantiate a grid object for the fine grid
-    #fine_grid = copy.copy(coarse_grid)                                          # Copy the grid object for modification
-    #fine_grid.regrid(4)                                                         # Regrid to the coarse grid
 
     # Build inputs required for creating groundwater buckets
     flowdir = fine_grid.numpy_to_Raster(rootgrp2.variables['FLOWDIRECTION'][:])

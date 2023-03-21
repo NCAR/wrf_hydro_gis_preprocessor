@@ -23,7 +23,6 @@ import os
 import sys
 import time
 import shutil
-#from distutils.version import LooseVersion
 from packaging.version import parse as LooseVersion                             # To avoid deprecation warnings
 
 # Import additional modules

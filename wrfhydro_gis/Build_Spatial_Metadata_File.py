@@ -22,14 +22,13 @@ descText = "This tool takes an input GEOGRID and uses that grid information to p
 import os
 import sys
 import time
-import copy
+import copy as cpy
 from distutils.version import LooseVersion
 
 # Import additional modules
 import netCDF4
 from argparse import ArgumentParser
 from pathlib import Path
-#from distutils.version import LooseVersion
 from packaging.version import parse as LooseVersion                             # To avoid deprecation warnings
 import osgeo
 
@@ -133,7 +132,7 @@ if __name__ == '__main__':
     print('    Input GeoTransform: {0}'.format(coarse_grid.GeoTransform()))                   # Print affine transformation to screen.
 
     # Build the regridded domain
-    fine_grid = copy.copy(coarse_grid)                                          # Copy the grid object for modification
+    fine_grid = cpy.copy(coarse_grid)                                          # Copy the grid object for modification
     fine_grid.regrid(regridFactor)                                              # Regrid to the coarse grid
     print('    Output GeoTransform: {0}'.format(fine_grid.GeoTransform()))      # Print affine transformation to screen.
     print('    New Resolution: {0} {1}'.format(fine_grid.DX, -fine_grid.DY))
