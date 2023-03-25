@@ -2128,9 +2128,9 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
                                                             clipGeom=geom,
                                                             geomType=ogr.wkbPoint)
 
-        # Project the input polygons to the output coordinate system
+        # Save to disk
         temp_pts = os.path.join(projdir, start_pts_temp)
-        out_ds = ogr.GetDriverByName(VectorDriver).CopyDataSource(pt_ds, temp_pts) # Copy to file on disk
+        out_ds = ogr.GetDriverByName(VectorDriver).CopyDataSource(pt_ds, temp_pts)
         pt_layer = pt_ds = fieldNames = out_ds = geom = None
 
         print('    Flow accumulation will be weighted using input channel initiation points.')
@@ -2138,7 +2138,7 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
 
         driver = ogr.Open(temp_pts).GetDriver()
         driver.DeleteDataSource(temp_pts)                                       # Delete input file
-        del temp_pts
+        del temp_pts, geom
 
     # Define the location for the stream raster grid
     streams_file = os.path.join(projdir, streams)
@@ -2186,8 +2186,12 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
     if not startPts:
         strm_arr[strm_arr==1] = 0
     if startPts is not None:
-        # Added 10/6/2020 to reclassify results of trace_downslope_flowpaths
-        strm_arr[strm_arr!=ndv] = 0
+        if zero_background_stream_order:
+            # Added 03/25/2023 to avoid entire grid getting set to 0
+            strm_arr[strm_arr>0] = 0
+        else:
+            # Added 10/6/2020 to reclassify results of trace_downslope_flowpaths
+            strm_arr[strm_arr!=ndv] = 0
 
     # Write Channelgrid layer to Fulldom_hires.nc
     rootgrp.variables['CHANNELGRID'][:] = strm_arr
