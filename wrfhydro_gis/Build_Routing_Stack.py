@@ -446,7 +446,8 @@ if __name__ == '__main__':
     if args.cellsize == all_defaults["cellsize"]:
         print('    Using default regridding factor: {0}'.format(all_defaults["cellsize"]))
     if args.threshold == all_defaults["threshold"]:
-        print('    Using default stream initiation threshold: {0}'.format(all_defaults["threshold"]))
+        if args.channel_starts == None:
+            print('    Using default stream initiation threshold: {0}'.format(all_defaults["threshold"]))
     if args.out_zip_file == all_defaults["out_zip_file"]:
         print('    Using default output location: {0}'.format(all_defaults["out_zip_file"]))
     if args.ovroughrtfac_val == all_defaults["ovroughrtfac_val"]:
@@ -474,6 +475,7 @@ if __name__ == '__main__':
         args.in_CSV = os.path.abspath(args.in_CSV)                              # Obtain absolute path for optional input file.
     if args.channel_starts != None:
         args.channel_starts = os.path.abspath(args.channel_starts)              # Obtain absolute path for optional input file.
+        args.threshold = None
     if args.gw_polys is not None:
         args.gw_polys = os.path.abspath(args.gw_polys)                          # Obtain absolute path for optional input file.
     if args.ch_mask is not None:

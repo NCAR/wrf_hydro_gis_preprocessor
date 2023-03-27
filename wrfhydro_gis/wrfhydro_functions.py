@@ -2118,7 +2118,7 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
         print('        Flow accumulation will be thresholded to build channel pixels.')
         wbt.extract_streams(flow_acc, streams, threshold, zero_background=zero_background_stream_order)
 
-    if startPts is not None:
+    else:
         # Added 8/14/2020 to use a vector of points to seed the channelgrid
 
         # Project input points and clip to domain if necessary
