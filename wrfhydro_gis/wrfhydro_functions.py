@@ -342,7 +342,7 @@ class WRF_Hydro_Grid:
         '''
         tic1 = time.time()
         # First step: Import and georeference NetCDF file
-        print('WPS netCDF projection identification initiated...')
+        print('    WPS netCDF projection identification initiated...')
 
         corner_index = 13                                                           # 13 = Upper left of the Unstaggered grid
 
@@ -534,15 +534,15 @@ class WRF_Hydro_Grid:
         Change the grid cell spacing while keeping all other grid parameters
         the same.
         '''
-        print('  Building sub-grid of model grid.')
-        print('    Original grid spacing dx={0}, dy={1}'.format(self.DX, self.DY))
-        print('    Original grid size: rows={0}, cols={1}'.format(self.nrows, self.ncols))
+        print('      Building sub-grid of model grid.')
+        print('        Original grid spacing dx={0}, dy={1}'.format(self.DX, self.DY))
+        print('        Original grid size: rows={0}, cols={1}'.format(self.nrows, self.ncols))
         self.DX = float(self.DX)/float(regrid_factor)
         self.DY = float(self.DY)/float(regrid_factor)
         self.nrows = int(self.nrows*regrid_factor)
         self.ncols = int(self.ncols*regrid_factor)
-        print('    New grid spacing: dx={0}, dy={1}'.format(self.DX, self.DY))
-        print('    New dimensions: rows={0}, cols={1}'.format(self.nrows, self.ncols))
+        print('        New grid spacing: dx={0}, dy={1}'.format(self.DX, self.DY))
+        print('        New dimensions: rows={0}, cols={1}'.format(self.nrows, self.ncols))
         return self
 
     def GeoTransform(self):
@@ -666,7 +666,7 @@ class WRF_Hydro_Grid:
         feature = ogr.Feature(LayerDef)                                     # Create a new feature (attribute and geometry)
         feature.SetGeometry(geometry)                                      # Make a feature from geometry object
         layer.CreateFeature(feature)
-        print('  Done producing output vector polygon shapefile in {0: 3.2f} seconds'.format(time.time()-tic1))
+        print('      Done producing output vector polygon shapefile in {0: 3.2f} seconds'.format(time.time()-tic1))
         datasource = ring = feature = layer = None        # geometry
         return geometry
 
@@ -925,18 +925,18 @@ def boundarySHP(in_file, outputFile='', DriverName='MEMORY'):
     tic1 = time.time()
     drv = ogr.GetDriverByName(DriverName)
     if drv is None:
-        print('      %s driver not available.' % DriverName)
+        print('            %s driver not available.' % DriverName)
     else:
-        print('      %s driver is available.' % DriverName)
+        print('            %s driver is available.' % DriverName)
         datasource = drv.CreateDataSource(outputFile)
     if datasource is None:
-        print('      Creation of output file failed.\n')
+        print('            Creation of output file failed.\n')
         raise SystemExit
 
     # Create output polygon vector file
     layer = datasource.CreateLayer('boundary', dst_proj, geom_type=ogr.wkbPolygon)
     if layer is None:
-        print('        Layer creation failed.\n')
+        print('            Layer creation failed.\n')
         raise SystemExit
     LayerDef = layer.GetLayerDefn()                                             # Fetch the schema information for this layer
 
@@ -955,7 +955,7 @@ def boundarySHP(in_file, outputFile='', DriverName='MEMORY'):
     feature = ogr.Feature(LayerDef)                                     # Create a new feature (attribute and geometry)
     feature.SetGeometry(geometry)                                      # Make a feature from geometry object
     layer.CreateFeature(feature)
-    print('  Done producing output vector polygon shapefile in {0: 3.2f} seconds'.format(time.time()-tic1))
+    print('      Done producing output vector polygon shapefile in {0: 3.2f} seconds'.format(time.time()-tic1))
     datasource = myRing = feature = layer = None        # geometry
     return geometry
 
@@ -1211,7 +1211,7 @@ def project_Features(InputVector, outProj, clipGeom=None, geomType=None):
 
     # Check if a coordinate transformation (projection) must be performed
     if not outProj.IsSame(in_proj):
-        print('    Input shapefile projection does not match requested output. Transforming.')
+        print('        Input shapefile projection does not match requested output. Transforming.')
         coordTrans = osr.CoordinateTransformation(in_proj, outProj)
         trans = True
 
@@ -1254,8 +1254,8 @@ def project_Features(InputVector, outProj, clipGeom=None, geomType=None):
     outFeatCount = outLayer.GetFeatureCount()                                   # Get number of features in output layer
     #outLayer = None                                                            # Clear memory
 
-    print('    Number of output features: {0} of {1}'.format(outFeatCount, in_layer.GetFeatureCount()))
-    print('  Completed reprojection and-or clipping in {0:3.2f} seconds.'.format(time.time()-tic1))
+    print('        Number of output features: {0} of {1}'.format(outFeatCount, in_layer.GetFeatureCount()))
+    print('      Completed reprojection and-or clipping in {0:3.2f} seconds.'.format(time.time()-tic1))
     in_vect = inlayerDef = in_layer = in_LayerDef = None
     return data_source, outLayer, fieldNames
 
@@ -1438,21 +1438,21 @@ def create_CF_NetCDF(grid_obj, rootgrp, projdir, addLatLon=False, notes='', addV
     using the getxy function."""
 
     tic1 = time.time()
-    print('  Creating CF-netCDF File.')
+    print('      Creating CF-netCDF File.')
 
     # Build Esri WKT Projection string to store in CF netCDF file
     projEsri = grid_obj.proj.Clone()                                            # Copy the SRS
     projEsri.MorphToESRI()                                                      # Alter the projection to Esri's representation of a coordinate system
     PE_string = projEsri.ExportToWkt().replace("'", '"')                        # INVESTIGATE - this somehow may provide better compatability with Esri products?
-    print('    Esri PE String: {0}'.format(PE_string))
+    print('        Esri PE String: {0}'.format(PE_string))
 
     # Find name for the grid mapping
     if CF_projdict.get(grid_obj.map_pro) is not None:
         grid_mapping = CF_projdict[grid_obj.map_pro]
-        print('    Map Projection of input raster : {0}'.format(grid_mapping))
+        print('        Map Projection of input raster : {0}'.format(grid_mapping))
     else:
         grid_mapping = 'crs'                                                    # Added 10/13/2017 by KMS to generalize the coordinate system variable names
-        print('    Map Projection of input raster (not a WRF projection): {0}'.format(grid_mapping))
+        print('        Map Projection of input raster (not a WRF projection): {0}'.format(grid_mapping))
 
     # Create Dimensions
     dim_y = rootgrp.createDimension('y', grid_obj.nrows)
@@ -1518,7 +1518,7 @@ def create_CF_NetCDF(grid_obj, rootgrp, projdir, addLatLon=False, notes='', addV
     del ymap, xmap
 
     if addLatLon == True:
-        print('    Proceeding to add LATITUDE and LONGITUDE variables after {0: 8.2f} seconds.'.format(time.time()-tic1))
+        print('        Proceeding to add LATITUDE and LONGITUDE variables after {0: 8.2f} seconds.'.format(time.time()-tic1))
 
         # Populate this file with 2D latitude and longitude variables
         # Latitude and Longitude variables (WRF)
@@ -1570,7 +1570,7 @@ def create_CF_NetCDF(grid_obj, rootgrp, projdir, addLatLon=False, notes='', addV
     rootgrp.history = 'Created {0}'.format(time.ctime())
     rootgrp.processing_notes = notes
     rootgrp.spatial_ref = PE_string                                             # For GDAl
-    print('  netCDF global attributes set after {0: 3.2f} seconds.'.format(time.time()-tic1))
+    print('      netCDF global attributes set after {0: 3.2f} seconds.'.format(time.time()-tic1))
 
     # Return the netCDF file to the calling script
     return rootgrp, grid_mapping
@@ -1585,24 +1585,24 @@ def build_GW_Basin_Raster(in_nc, projdir, in_method, strm, fdir, grid_obj, in_Po
 
     #(in_nc, in_method, strm, grid_obj, in_Polys) = (inFulldom, defaultGWmethod, channelgrid, fine_grid, in_GWPolys)
     tic1 = time.time()
-    print('Beginning to build 2D groundwater basin inputs')
-    print('  Building groundwater inputs using {0}'.format(in_method))
+    print('    Beginning to build 2D groundwater basin inputs')
+    print('      Building groundwater inputs using {0}'.format(in_method))
 
     # Determine which method will be used to generate groundwater bucket grid
     if in_method == 'FullDom basn_msk variable':
-        print('    Reading Fulldom_hires for basn_msk variable.')
+        print('        Reading Fulldom_hires for basn_msk variable.')
 
         # Create a raster layer from the netCDF
         rootgrp = netCDF4.Dataset(in_nc, 'r')                                      # Read-only on FullDom file
         basn_arr = rootgrp.variables['basn_msk'][:]
         if numpy.unique(basn_arr).shape[0] == 1:
-            print('WARNING: No basins are present in Fulldom basn_msk variable.')
+            print('    WARNING: No basins are present in Fulldom basn_msk variable.')
         GWBasns = grid_obj.numpy_to_Raster(rootgrp.variables['basn_msk'][:])
         rootgrp.close()
         del rootgrp, basn_arr
 
     elif in_method == 'FullDom LINKID local basins':
-        print('    Generating LINKID grid for building local sub-basins.')
+        print('        Generating LINKID grid for building local sub-basins.')
 
         # Whitebox options for running Whitebox in a full workflow
         wbt = WhiteboxTools()
@@ -1630,7 +1630,7 @@ def build_GW_Basin_Raster(in_nc, projdir, in_method, strm, fdir, grid_obj, in_Po
         remove_file(sub_basins_file)
 
     elif in_method == 'Polygon Shapefile or Feature Class':
-        print('    Groundwater  polygon shapefile input: {0}'.format(in_Polys))
+        print('        Groundwater  polygon shapefile input: {0}'.format(in_Polys))
 
         # Project the input polygons to the output coordinate system
         Poly_FC = os.path.join(projdir, 'Projected_GW_Basins.shp')
@@ -1639,7 +1639,7 @@ def build_GW_Basin_Raster(in_nc, projdir, in_method, strm, fdir, grid_obj, in_Po
         poly_layer = poly_ds = None
 
         # Assign a new ID field for basins, numbered 1...n. Add field to store this information if necessary
-        print('    Adding auto-incremented basin ID field (1...n)')
+        print('        Adding auto-incremented basin ID field (1...n)')
         poly_layer = out_ds.GetLayer()
         basinID = "newID"
         if basinID not in fieldNames:
@@ -1655,7 +1655,7 @@ def build_GW_Basin_Raster(in_nc, projdir, in_method, strm, fdir, grid_obj, in_Po
         GWBasns = FeatToRaster(Poly_FC, strm, basinID, gdal.GDT_Int32, NoData=NoDataVal)
         ogr.GetDriverByName(VectorDriver).DeleteDataSource(Poly_FC)             # Delete temporary shapefile
 
-    print('Finished building fine-grid groundwater basin grids in {0: 3.2f} seconds'.format(time.time()-tic1))
+    print('    Finished building fine-grid groundwater basin grids in {0: 3.2f} seconds'.format(time.time()-tic1))
     return GWBasns
 
 def build_GWBASINS_nc(GW_BUCKS, out_dir, grid_obj):
@@ -1781,14 +1781,14 @@ def build_GW_buckets(out_dir, GWBasns, grid_obj, Grid=True, saveRaster=False):
     # (out_dir, GWBasns, grid_obj, Grid, saveRaster) = (projdir, GWBasns, coarse_grid, True, False)
 
     tic1 = time.time()
-    print('Beginning to build coarse-grid groundwater basins and parameters')
+    print('    Beginning to build coarse-grid groundwater basins and parameters')
 
     # Read basin information from the array
     GWBasns_arr = BandReadAsArray(GWBasns.GetRasterBand(1))                     # Read input raster into array
     ndv = GWBasns.GetRasterBand(1).GetNoDataValue()                             # Obtain nodata value
     UniqueVals = numpy.unique(GWBasns_arr[GWBasns_arr!=ndv])                    # Array to store the basin ID values in the fine-grid groundwater basins
     UniqueVals = UniqueVals[UniqueVals>=0]                                      # Remove NoData, removes potential noData values (-2147483647, -9999)
-    print('    Found {0} basins in the watershed grid'.format(UniqueVals.shape[0]))
+    print('        Found {0} basins in the watershed grid'.format(UniqueVals.shape[0]))
     del UniqueVals, GWBasns_arr
 
     # Resample fine-grid groundwater basins to coarse grid
@@ -1802,7 +1802,7 @@ def build_GW_buckets(out_dir, GWBasns, grid_obj, Grid=True, saveRaster=False):
     GWBasns_arr2[GWBasns_arr2==ndv] = NoDataVal                                 # Ensure all non-basin areas are NoData
     UniqueVals2 = numpy.unique(GWBasns_arr2[:])                                 # Get the unique values, including nodata
     GW_BUCKS = band = ndv = None                                                # Destroy the resampled-to-coarse-grid groundwater basin raster
-    print('    Found {0} basins (potentially including nodata values) in the file after resampling to the coarse grid.'.format(UniqueVals2.shape[0]))
+    print('        Found {0} basins (potentially including nodata values) in the file after resampling to the coarse grid.'.format(UniqueVals2.shape[0]))
 
     '''Because we resampled to the coarse grid, we lost some basins. Thus, we need to
     re-assign basin ID values to conform to the required 1...n groundwater basin
@@ -1839,7 +1839,7 @@ def build_GW_buckets(out_dir, GWBasns, grid_obj, Grid=True, saveRaster=False):
         out_ds = None
 
     # Alternate method to obtain IDs - read directly from raster attribute table
-    print('    Calculating size and ID parameters for basin polygons.')
+    print('        Calculating size and ID parameters for basin polygons.')
     GW_BUCKS_arr = BandReadAsArray(GW_BUCKS.GetRasterBand(1))
     GW_BUCKS = None
     uniques = numpy.unique(GW_BUCKS_arr, return_counts=True)
@@ -1854,7 +1854,7 @@ def build_GW_buckets(out_dir, GWBasns, grid_obj, Grid=True, saveRaster=False):
 
     # Clean up and return
     del cat_comids, cat_areas
-    print('Finished building groundwater parameter files in {0: 3.2f} seconds'.format(time.time()-tic1))
+    print('    Finished building groundwater parameter files in {0: 3.2f} seconds'.format(time.time()-tic1))
     return
 
 def force_edges_off_grid(fd_arr, ignore_vals=[]):
@@ -1926,11 +1926,11 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
     """
 
     tic1 = time.time()
-    print('Terrain processing step initiated...')
+    print('    Terrain processing step initiated...')
 
     # Whitebox options for running Whitebox in a full workflow
     wbt = WhiteboxTools()
-    print('    Using {0}'.format(wbt.version().split('\n')[0]))
+    print('        Using {0}'.format(wbt.version().split('\n')[0]))
     wbt.work_dir = projdir                              # Set working directory
     wbt.verbose = False                                 # Verbose output. [True, False]
     esri_pntr = True                                    # Use the Esri flow direction classification scheme
@@ -1953,12 +1953,12 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
     if sink:
         sink_output = "sinks.tif"
         sink_depth = "sink_depth.tif"
-        print('  Outputting layer of sink locations: {0}'.format(sink_output))
+        print('      Outputting layer of sink locations: {0}'.format(sink_output))
         wbt.sink(
             indem,
             sink_output,
             zero_background=False)
-        print('  Outputting layer of sink depths: {0}'.format(sink_depth))
+        print('      Outputting layer of sink depths: {0}'.format(sink_depth))
         wbt.depth_in_sink(
             indem,
             sink_depth,
@@ -1966,7 +1966,7 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
 
     # Determine which terrain processing workflow to follow from Whitebox Tools tools.
     if Full_Workflow:
-        print('    Algorithm: Whitebox Flow Accumulation Full Workflow.')
+        print('        Algorithm: Whitebox Flow Accumulation Full Workflow.')
         # Perform Fill, Flow Direction, and Flow Accumulation in one step
         wbt.flow_accumulation_full_workflow(
             indem,
@@ -1978,7 +1978,7 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
     else:
         # Runs each whitebox tool separately
         if fill_deps:
-            print('    Depression Filling algorithm: Whitebox Fill Depressions.')
+            print('        Depression Filling algorithm: Whitebox Fill Depressions.')
 
             # Fill Depressions options
             fix_flats = True                                   # Optional flag indicating whether flat areas should have a small gradient applied. [True, False]
@@ -2010,7 +2010,7 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
             exceeded such that the output DEM will be completely depressionless.
             This is not always desirable.
             '''
-            print('    Depression Breaching algorithm: Whitebox Breach Depressions (Lindsay, 2016).')
+            print('        Depression Breaching algorithm: Whitebox Breach Depressions (Lindsay, 2016).')
 
             # Breach Depression options
             max_length = x_limit                               # Optional maximum breach channel length (in grid cells; default is Inf) [None]
@@ -2036,7 +2036,7 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
             #remove_file(os.path.join(projdir, fill_pits))                       # Delete temporary file
 
         elif breach_deps_LC:
-            print('    Depression Breaching algorithm: Whitebox Breach Depressions Least Cost (Lindsay and Dhun, 2015).')
+            print('        Depression Breaching algorithm: Whitebox Breach Depressions Least Cost (Lindsay and Dhun, 2015).')
 
             # Breach Depressions Least Cost Options
             fill_remaining = True                           # Optional flag indicating whether to fill any remaining unbreached depressions
@@ -2062,7 +2062,7 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
             # Esri Spatial Analyst "Fill" tool with no fill limit.
             # Planchon, O. and Darboux, F., 2002. A fast, simple and versatile algorithm to fill the depressions of digital elevation models. Catena, 46(2-3), pp.159-176.
 
-            print('    Depression Filling algorithm: Planchon and Darboux (2002).')
+            print('        Depression Filling algorithm: Planchon and Darboux (2002).')
             # Fill Depressions (Planchon and Darboux) options
             fix_flats = False                               # Optional flag indicating whether flat areas should have a small gradient applied. [True, False]
             flat_increment = None                           # 0.0001
@@ -2091,7 +2091,7 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
     fill_arr, ndv = return_raster_array(fill_pits_file)
     fill_arr[fill_arr==ndv] = NoDataVal                                         # Replace raster NoData with WRF-Hydro NoData value
     rootgrp.variables['TOPOGRAPHY'][:] = fill_arr
-    print('    Process: TOPOGRAPHY written to output netCDF.')
+    print('        Process: TOPOGRAPHY written to output netCDF.')
     del fill_arr, ndv
 
     # Process: Flow Direction
@@ -2101,7 +2101,7 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
     fdir_arr_out = force_edges_off_grid(fdir_arr)                               # Force 0-value cells to flow off edge of grid.
     fdir_arr_out[fdir_arr_out==ndv] = 255                                       # Replace raster NoData with specific value
     rootgrp.variables['FLOWDIRECTION'][:] = fdir_arr_out
-    print('    Process: FLOWDIRECTION written to output netCDF.')
+    print('        Process: FLOWDIRECTION written to output netCDF.')
     del fdir_arr, fdir_arr_out, ndv
 
     # Process: Flow Accumulation (intermediate
@@ -2109,13 +2109,13 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
     flac_arr, ndv = return_raster_array(flow_acc_file)
     flac_arr[flac_arr==ndv] = 0                                                 # Set NoData values to 0 on Flow Accumulation grid
     rootgrp.variables['FLOWACC'][:] = flac_arr
-    print('    Process: FLOWACC written to output netCDF.')
+    print('        Process: FLOWACC written to output netCDF.')
     del flac_arr, ndv
 
     # Create stream channel raster
     if not startPts:
         # Create stream channel raster according to threshold
-        print('    Flow accumulation will be thresholded to build channel pixels.')
+        print('        Flow accumulation will be thresholded to build channel pixels.')
         wbt.extract_streams(flow_acc, streams, threshold, zero_background=zero_background_stream_order)
 
     if startPts is not None:
@@ -2133,7 +2133,7 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
         out_ds = ogr.GetDriverByName(VectorDriver).CopyDataSource(pt_ds, temp_pts)
         pt_layer = pt_ds = fieldNames = out_ds = geom = None
 
-        print('    Flow accumulation will be weighted using input channel initiation points.')
+        print('        Flow accumulation will be weighted using input channel initiation points.')
         wbt.trace_downslope_flowpaths(temp_pts, dir_d8, streams, esri_pntr=esri_pntr, zero_background=zero_background_stream_order)
 
         driver = ogr.Open(temp_pts).GetDriver()
@@ -2145,9 +2145,9 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
 
     # Added 9/2/2022 - Option to mask the Channelgrid layer to a mask raster (1 or NoData on the routing grid)
     if not chmask:
-        print('    No masking of CHANNELGRID will be performed.')
+        print('        No masking of CHANNELGRID will be performed.')
     if chmask is not None:
-        print('    Masking CHANNELGRID to user-provided mask raster.')
+        print('        Masking CHANNELGRID to user-provided mask raster.')
 
         # Open streams file in update mode
         ds = gdal.Open(streams_file, gdalconst.GA_Update)
@@ -2195,7 +2195,7 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
 
     # Write Channelgrid layer to Fulldom_hires.nc
     rootgrp.variables['CHANNELGRID'][:] = strm_arr
-    print('    Process: CHANNELGRID written to output netCDF.')
+    print('        Process: CHANNELGRID written to output netCDF.')
     del strm_arr, ndv, flow_acc
 
     # Process: Stream Order
@@ -2213,27 +2213,27 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
     # -9999 does not fit in the 8-bit types, so it gets put in as -15 by netCDF4 for some reason
     strahler_arr[strahler_arr==ndv] = NoDataVal
     rootgrp.variables['STREAMORDER'][:] = strahler_arr
-    print('    Process: STREAMORDER written to output netCDF.')
+    print('        Process: STREAMORDER written to output netCDF.')
     del strahler_arr, ndv
 
     # Create initial constant raster of value retdeprtfac_val
     rootgrp.variables['RETDEPRTFAC'][:] = float(retdeprtfac_val)
-    print('    Process: RETDEPRTFAC written to output netCDF.')
+    print('        Process: RETDEPRTFAC written to output netCDF.')
 
     # Create initial constant raster of ovroughrtfac_val
     rootgrp.variables['OVROUGHRTFAC'][:] = float(ovroughrtfac_val)
-    print('    Process: OVROUGHRTFAC written to output netCDF.')
+    print('        Process: OVROUGHRTFAC written to output netCDF.')
 
     # Create initial constant raster of LKSATFAC
     rootgrp.variables['LKSATFAC'][:] = float(lksatfac_val)
-    print('    Process: LKSATFAC written to output netCDF.')
+    print('        Process: LKSATFAC written to output netCDF.')
 
     # We will assume that no forecast points, basin masks, or lakes are provided
     rootgrp.variables['frxst_pts'][:] = NoDataVal
     rootgrp.variables['basn_msk'][:] = NoDataVal
     rootgrp.variables['LAKEGRID'][:] = NoDataVal
 
-    print('Terrain processing step completed without error in {0: 3.2f} seconds.'.format(time.time()-tic1))
+    print('    Terrain processing step completed without error in {0: 3.2f} seconds.'.format(time.time()-tic1))
     return rootgrp, dir_d8_file, flow_acc_file, streams_file, fill_pits_file, strahler_file
 
 def CSV_to_SHP(in_csv, DriverName='MEMORY', xVar='LON', yVar='LAT', idVar='FID', toProj=None):
@@ -3229,6 +3229,243 @@ def flip_dim(array_dimensions, DimToFlip='south_north'):
     else:
         print("    Requested dimension for reversal not found '{0}'.".format(DimToFlip))
     return ind
+
+def move_downstream(DIRECTION, trim=True, mask=slice(None)):
+    '''
+    This function accepts a flow direction grid, and will return a grid of indices
+    for the downstream cells for each cell on the grid. Index values that fall off
+    of the grid will be optionally left the same as the input.
+    '''
+
+    # Get the indices of the grid (in Fulldom, the order is (y, x))
+    j_size, i_size = DIRECTION.shape
+    j, i = numpy.indices(DIRECTION.shape)
+
+    # Mask arrays as necessary
+    j = j[mask]
+    i = i[mask]
+    DIRECTION = DIRECTION[mask]
+
+    # Make copies that can be modified
+    downstream_index_grid_j = j.copy()
+    downstream_index_grid_i = i.copy()
+
+    # For each flow direction, adjust index up or down, left or right
+    #   Remember north is up so -1 on the j-grid index is north (up)
+    #   Remember north is up so +1 on the j-grid index is south (down)
+    downstream_index_grid_j[numpy.logical_and(DIRECTION>=32, DIRECTION<=128)] -= 1
+    downstream_index_grid_j[numpy.logical_and(DIRECTION>=2, DIRECTION<=8)] += 1
+    downstream_index_grid_i[numpy.logical_and(DIRECTION>=8, DIRECTION<=32)] -= 1
+    downstream_index_grid_i[(DIRECTION==2) | (DIRECTION==1) | (DIRECTION==128)] += 1
+
+    # Calculate any invalid indices (cells that flow off the grid)
+    valid_mask = numpy.full(DIRECTION.shape, True)
+    valid_mask = numpy.logical_and(valid_mask, downstream_index_grid_j>=0)
+    valid_mask = numpy.logical_and(valid_mask, downstream_index_grid_j<=j_size-1)
+    valid_mask = numpy.logical_and(valid_mask, downstream_index_grid_i>=0)
+    valid_mask = numpy.logical_and(valid_mask, downstream_index_grid_i<=i_size-1)
+
+    # Trim the edges so that nothing is beyond the indices of the initial grid
+    if trim:
+        downstream_index_grid_i[~valid_mask] = i[~valid_mask]
+        downstream_index_grid_j[~valid_mask] = j[~valid_mask]
+
+    del j_size, i_size, j, i
+    return downstream_index_grid_j, downstream_index_grid_i, valid_mask
+
+def get_tot_chan_and_lakes(CH_NETRT, DIRECTION, CH_nodata=-9999):
+    '''
+    Numpy arrays from top to bottom, so we need to reverse all j indices
+    in the function below
+    '''
+    print('          Obtaining valid channel cells')
+    tic1 = time.time()
+    error_cells = []
+
+    # Empty grid
+    CH_NETLNK = numpy.full(CH_NETRT.shape, CH_nodata)
+
+    # Vectorized approach
+    channelgrid_mask = CH_NETRT>=0
+
+    # For each channel grid, look up what is downstream
+    downstream_index_grid_j, downstream_index_grid_i, valid_mask = move_downstream(DIRECTION, trim=False, mask=channelgrid_mask)
+
+    # Number of cells that are not flowing off the grid
+    counter2 = valid_mask.sum()
+
+    # Find where the valid downstream channels are also channel cells
+    cnt = channelgrid_mask[downstream_index_grid_j[valid_mask], downstream_index_grid_i[valid_mask]].sum()
+
+    # Find flow direction errors
+    channel_error_mask = numpy.logical_and(channelgrid_mask, DIRECTION==0)
+    error_cells += numpy.asarray(numpy.where(channel_error_mask)).T.tolist()
+
+    # Adjust counters to eliminate these error cells
+    cnt -= channel_error_mask.sum()
+    counter2 -= channel_error_mask.sum()
+
+    print('        found type 0 nodes      {0}'.format(cnt))
+    print('            Found {0} cells that are within parameters'.format(counter2))
+    print('            total number of channel elements: {0}'.format(cnt))
+    print('            Completed cnt calculation in {0:3.2f} seconds'.format(time.time()-tic1))
+
+    # Reduce all arrays to eliminate problem pixels
+    valid_mask = valid_mask[~channel_error_mask[channelgrid_mask]]
+    downstream_index_grid_j = downstream_index_grid_j[~channel_error_mask[channelgrid_mask]]
+    downstream_index_grid_i = downstream_index_grid_i[~channel_error_mask[channelgrid_mask]]
+    channelgrid_mask[channel_error_mask] = False
+
+    CH_NETLNK.flat[numpy.flatnonzero(channelgrid_mask)[valid_mask]] = numpy.arange(1, counter2+1)
+    CH_NETLNK[channel_error_mask] = CH_nodata                                   # Redundant with previous step?
+
+    # Reverse the valid mask, so that we are only looking at the cells that flow off the grid
+    valid_mask2 = ~valid_mask
+    counter3 = (valid_mask2).sum()
+
+    # Using multiple levels of boolean indexing
+    CH_NETLNK.flat[numpy.flatnonzero(channelgrid_mask)[valid_mask2]] = numpy.arange(cnt+1, (cnt+1)+(counter3+1))
+    cnt += counter3
+    counter2 += counter3
+
+    # Still need to add in the channels that drain to a non channel
+    valid_mask3 = CH_NETRT[downstream_index_grid_j[valid_mask], downstream_index_grid_i[valid_mask]]<0
+    valid_mask4 = valid_mask
+    valid_mask4[valid_mask] = valid_mask3
+    counter4 = (valid_mask4).sum()
+    #CH_NETRT.flat[numpy.flatnonzero(channelgrid_mask)[valid_mask4]] = numpy.arange(cnt+1, (cnt+1)+(counter3+1))
+    CH_NETLNK.flat[numpy.flatnonzero(channelgrid_mask)[valid_mask4]] = numpy.arange(cnt+1, (cnt+1)+(counter3+1))
+    counter2 += counter4
+    cnt += counter4
+    del downstream_index_grid_j, downstream_index_grid_i, channelgrid_mask
+
+    print('            Found {0} cells that are within parameters'.format(counter3+counter4))
+    print('            total number of channel elements: {0}'.format(cnt))
+    print('            Completed lake and boundary calculation in {0:3.2f} seconds'.format(time.time()-tic1))
+    return cnt, CH_NETLNK, error_cells
+
+def nlinks_checker(rootgrp_FD,
+                    FD_linkidVar='LINKID',
+                    FD_chgridVar='CHANNELGRID',
+                    FD_FD8Var='FLOWDIRECTION',
+                    FD_orderVar='STREAMORDER',
+                    silent=False):
+
+    '''
+    3/27/2023
+        This function will perform a check of the CHANNELGRID layer in Fulldom_hires.nc
+        for channel connectivity errors. These typically occur as a result of processing
+        with WhiteBox Tools in areas around coastlines. This script will perform
+        a similar set of checks to WRF-Hydro and resolve the issues by setting
+        CHANNELGRID and FLOWDIRECTION (and STREAMORDER) values to appropriate and
+        valid values.
+
+        Inputs:
+            rootgrp_FD - Fulldom_hires.nc Dataset object from netcdf4 library.
+                         Must be open in write mode to make changes.
+
+    '''
+    tic1 = time.time()
+
+    # Create a list of the valid Flow Direction valus
+    valid_FDs = [64, 128, 1, 2, 4, 8, 16, 32]
+
+    # Define the NoData value for CHANNELGRID cells
+    CH_nodata = -9999
+
+    # Flag to fix errors that are found by this script
+    fix_CH = True
+
+    # Fix the masking of the input netcdf.Dataset object.
+    if LooseVersion(netCDF4.__version__) > LooseVersion('1.4.0'):
+        rootgrp_FD.set_auto_mask(False)                                         # Change masked arrays to old default (numpy arrays always returned)
+    variables_FD = rootgrp_FD.variables
+
+    if FD_linkidVar in variables_FD:
+        FD_linkID = variables_FD[FD_linkidVar][:]
+        print('        Found {0} {1} cells in input {1} variable'.format(numpy.unique(FD_linkID[:]).shape[0], FD_linkidVar))
+        del FD_linkID
+
+    # Gather the channelgrid
+    FD_chgrid = variables_FD[FD_chgridVar][:]
+    FD_order = variables_FD[FD_orderVar][:]
+    strm_order_min = FD_order.min()
+    print('        Found {0} channelgrid cells in input {1} variable'.format((FD_chgrid>=0).sum(), FD_chgridVar))
+
+    # Do NLINKS check - Vectorized approach
+    NLINKS = 0
+    print('          Obtaining total number of channel cells in domain')
+    NLINKS = (FD_chgrid>=0).sum()
+    print("            NLINKS IS {0}".format(NLINKS))
+
+    # Perform check on number of links
+    FD8_grid = variables_FD[FD_FD8Var][:]
+
+    # Determine if any of the Flowdirection values are invalid and set to 0 if so
+    invalid_FDs = ~numpy.in1d(FD8_grid, valid_FDs).reshape(FD8_grid.shape)
+    FD8_grid[invalid_FDs] = 0
+    del invalid_FDs
+
+    # Vectorized method for obtaining errors
+    cnt, CH_NETLNK, error_cells = get_tot_chan_and_lakes(FD_chgrid, FD8_grid, CH_nodata=CH_nodata)
+    print("        total number of channel elements {0}".format(cnt))
+    print("        total number of NLINKS           {0}".format(NLINKS))
+    if cnt != NLINKS:
+        print('        Apparent error in network topology {0} {1}'.format(cnt, NLINKS))
+
+    # Perfroam check for errors after the lake and edge step
+    secondary_check = True
+    if secondary_check:
+        CH_OUT = CH_NETLNK.copy()
+        CH_OUT[CH_OUT!=CH_nodata] = 0
+        error_cells2 = numpy.asarray(numpy.where(FD_chgrid!=CH_OUT)).T.tolist()
+        for error_cell2 in error_cells:
+            if error_cell2 not in error_cells:
+                error_cells.append(error_cell2)
+        del CH_OUT, error_cells2
+    print('        Found {0} channel grid cells that do not match after assigning IDs.'.format(len(error_cells)))
+
+    if len(error_cells) > 0:
+        print('        Enumerating location of error cells:')
+        for error_j, error_i in error_cells:
+            error_lon = variables_FD['LONGITUDE'][error_j, error_i]
+            error_lat = variables_FD['LATITUDE'][error_j, error_i]
+            if not silent:
+                print('          Direction i,j {0},{1} is invalid'.format(error_i,error_j))
+                print('            Longitude/Latitude: {0},{1}'.format(error_lon, error_lat))
+
+            if fix_CH:
+                # Set the problematic channelgrid cell to NoData
+                FD_chgrid[error_j, error_i] = CH_nodata
+
+                # Set other variables related to the channel to nodata
+                FD_order[error_j, error_i] = strm_order_min
+
+                # Reset all channel cell IDs to reflect the loss of this cell
+                chID = CH_NETLNK[error_j, error_i]
+                CH_NETLNK[error_j, error_i] = CH_nodata
+                CH_NETLNK[CH_NETLNK>chID] -= 1
+            del error_lon, error_lat
+
+    # Alter grids in the input if requested
+    if not numpy.array_equal(variables_FD[FD_FD8Var][:], FD8_grid):
+        print('        WARNING: The {0} variable in Fulldom_hires.nc file will be altered.'.format(FD_FD8Var))
+        variables_FD[FD_FD8Var][:] = FD8_grid
+    else:
+        print('        The {0} variable in the input Fulldom_hires.nc file will not be altered.'.format(FD_FD8Var))
+    if not numpy.array_equal(variables_FD[FD_chgridVar][:],FD_chgrid):
+        print('        WARNING: The {0} variable in Fulldom_hires.nc file will be altered.'.format(FD_chgridVar))
+        variables_FD[FD_chgridVar][:] = FD_chgrid
+        print('        WARNING: The {0} variable in Fulldom_hires.nc file will be altered.'.format(FD_orderVar))
+        variables_FD[FD_orderVar][:] = FD_order
+    else:
+        print('        The {0} variable in Fulldom_hires.nc file will not be altered.'.format(FD_chgridVar))
+        print('        The {0} variable in Fulldom_hires.nc file will not be altered.'.format(FD_orderVar))
+
+    # Clean up
+    del variables_FD, FD_chgrid, FD_order
+    print('        NLINKS checking process completed in {0:3.2f} seconds'.format(time.time()-tic1))
+    return rootgrp_FD
 
 # --- End Functions --- #
 

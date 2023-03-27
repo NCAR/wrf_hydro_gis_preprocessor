@@ -135,6 +135,9 @@ mosprj_name = 'mosaicprj.tif'                                                   
 outZipDefault = 'WRF_Hydro_routing_grids.zip'                                   # Default output routing stack zip file name if not provided by user
 defaltGeogrid = 'geo_em.d01.nc'                                                 # Default input geogrid file name if not provided by user
 
+# Check the resulting Fulldom_hires.nc file for NLINKS errors (a WRF-Hydro channel connectivity issue)
+check_nlinks = True
+
 # --- End Global Variables --- #
 
 # --- Functions --- #
@@ -187,10 +190,10 @@ def GEOGRID_STANDALONE(inGeogrid,
         AddGages = False
 
     if routing:
-        print('  Reach-based routing files will be created.')
+        print('    Reach-based routing files will be created.')
         varList2D.append(['LINKID', 'i4', ''])
     else:
-        print('  Reach-based routing files will not be created.')
+        print('    Reach-based routing files will not be created.')
 
     # Step 1 - Georeference geogrid file
     rootgrp = netCDF4.Dataset(inGeogrid, 'r')                                   # Establish an object for reading the input NetCDF files
@@ -228,7 +231,7 @@ def GEOGRID_STANDALONE(inGeogrid,
 
     # Build latitude and longitude arrays for Fulldom_hires netCDF file
     if coordMethod1:
-        print('  Deriving geocentric coordinates on routing grid from bilinear interpolation of geogrid coordinates.')
+        print('    Deriving geocentric coordinates on routing grid from bilinear interpolation of geogrid coordinates.')
         # Build latitude and longitude arrays for GEOGRID_LDASOUT spatial metadata file
         latArr = wrfh.flip_grid(rootgrp.variables['XLAT_M'][:])                 # Extract array of GEOGRID latitude values
         lonArr = wrfh.flip_grid(rootgrp.variables['XLONG_M'][:])                # Extract array of GEOGRID longitude values
@@ -252,7 +255,7 @@ def GEOGRID_STANDALONE(inGeogrid,
         del latArr, lonArr, latRaster1, lonRaster1, latRaster2, lonRaster2
 
     elif coordMethod2:
-        print('  Deriving geocentric coordinates on routing grid from direct transformation geogrid coordinates.')
+        print('    Deriving geocentric coordinates on routing grid from direct transformation geogrid coordinates.')
         # Method 2: Transform each point from projected coordinates to geocentric coordinates
         wgs84_proj = osr.SpatialReference()                                     # Build empty spatial reference object
         wgs84_proj.ImportFromProj4(wrfh.wgs84_proj4)                            # Imprort from proj4 to avoid EPSG errors (4326)
@@ -311,10 +314,14 @@ def GEOGRID_STANDALONE(inGeogrid,
 
     gridded = not routing                                                       # Flag for gridded routing
     if os.path.exists(in_lakes):
-        #pass
         # Alter Channelgrid for reservoirs and build reservoir inputs
         print('    Reservoir polygons provided. Lake routing will be activated.')
         rootgrp2 = wrfh.add_reservoirs(rootgrp2, projdir, fac, in_lakes, fine_grid, Gridded=gridded)
+
+    # Check for NLINKS channel connectivity errors (added by KMS 3/27/2023)
+    if check_nlinks:
+        print('    Checking CHANNELGRID layer for NLINKS errors.')
+        rootgrp2 = wrfh.nlinks_checker(rootgrp2, silent=True)
     rootgrp2.close()                                                            # Close Fulldom_hires.nc file
     del rootgrp2
 
@@ -448,10 +455,10 @@ if __name__ == '__main__':
         print('    Using default RETDEPRTFAC parameter value: {0}'.format(all_defaults["retdeprtfac_val"]))
 
     # Handle unsupported configurations
-    if args.RB_routing and args.in_reservoirs is not None:
-        print('  Reach-based routing with reservoirs configuration not currently supported in this version of the GIS Pre-processing tools. Try the ArcGIS version.')
-        print('Exiting.')
-        raise SystemExit
+    ##    if args.RB_routing and args.in_reservoirs is not None:
+    ##        print('  Reach-based routing with reservoirs configuration not currently supported in this version of the GIS Pre-processing tools. Try the ArcGIS version.')
+    ##        print('Exiting.')
+    ##        raise SystemExit
 
     # This block allows us to continue to check for a valid file path while allowing the script later to avoid a NoneType error.
     args.in_Geogrid = os.path.abspath(args.in_Geogrid)                          # Obtain absolute path for required input file.
