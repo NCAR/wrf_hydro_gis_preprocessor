@@ -45,6 +45,9 @@ import netCDF4
 import numpy
 import osgeo
 
+from shapely.geometry import LineString                                         # Added 03/28/2023 to support line midpoint geometry generation for RouteLink
+from shapely import wkt                                                         # Added 03/28/2023 to support line midpoint geometry generation for RouteLink
+
 try:
     if LooseVersion(osgeo.__version__) > LooseVersion('3.0'):
         from osgeo import gdal
@@ -2117,7 +2120,6 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
         # Create stream channel raster according to threshold
         print('        Flow accumulation will be thresholded to build channel pixels.')
         wbt.extract_streams(flow_acc, streams, threshold, zero_background=zero_background_stream_order)
-
     else:
         # Added 8/14/2020 to use a vector of points to seed the channelgrid
 
@@ -2546,6 +2548,17 @@ def build_RouteLink(RoutingNC, order, From_To, NodeElev, NodesLL, NodesXY, Lengt
     print('    Routing table created without error.')
     return
 
+def find_line_midpoint(geom):
+    '''
+    This function will use shapely to find the midpoint along a line, given an
+    OGR geometry object.
+    '''
+    shapelyLine = LineString(wkt.loads(geom.ExportToWkt()))
+    midPoint = shapelyLine.interpolate(shapelyLine.length/2)
+    outGeom = ogr.CreateGeometryFromWkt(midPoint.wkt)
+    del midPoint, shapelyLine
+    return outGeom
+
 def Routing_Table(projdir, rootgrp, grid_obj, fdir, strm, Elev, Strahler, gages=False, Lakes=None):
     """If "Create reach-based routing files?" is selected, this function will create
     the Route_Link.nc table and Streams.shp shapefiles in the output directory."""
@@ -2639,7 +2652,7 @@ def Routing_Table(projdir, rootgrp, grid_obj, fdir, strm, Elev, Strahler, gages=
     # These are typically single-cell channel cells on the edge of the grid.
     ds = ogr.Open(streams_vector_file)
     lyr = ds.GetLayer(0)                                               # Get the 'layer' object from the data source
-    vector_reach_IDs = numpy.unique([feature.GetField('STRM_VAL') for feature in lyr])
+    vector_reach_IDs = numpy.unique([feature.GetField('STRM_VAL') for feature in lyr]).astype(int)
     print('        Found {0} unique IDs in stream vector layer.'.format(len(vector_reach_IDs)))
     ds = lyr = None
 
@@ -2704,8 +2717,11 @@ def Routing_Table(projdir, rootgrp, grid_obj, fdir, strm, Elev, Strahler, gages=
 
         # Get coordinates of first and last point, flow line ID, and flow line length
         first_point = geom.GetPoint(0)
+        #mid_point = geom.Centroid()
+        mid_point = find_line_midpoint(geom)
         last_point = geom.GetPoint(geom.GetPointCount() - 1)
         first_point_coords = (first_point[0], first_point[1])
+        mid_point_coords = (mid_point.GetX(), mid_point.GetY())
         last_point_coords = (last_point[0], last_point[1])
 
         # Create topology dictionary of 'bottom_point geometry: stream flowline ID'
@@ -2715,13 +2731,13 @@ def Routing_Table(projdir, rootgrp, grid_obj, fdir, strm, Elev, Strahler, gages=
             topology_dic[last_point_coords] = [flowline_id]
 
         # Create coordinate dictionary of flowline ID: first point, last point, length
-        coords_dic[flowline_id] = first_point_coords, last_point_coords, flowline_length
+        coords_dic[flowline_id] = first_point_coords, last_point_coords, flowline_length, mid_point_coords
         feature = geom = first_point = last_point = None
     lyr.ResetReading()
 
     # Create to/from dictionary matching bottom point to top point, creating dic of 'from ID: to ID'
     to_from_dic = {}
-    for flowline_id, (first_point_coords, last_point_coords, flowline_length) in coords_dic.items():
+    for flowline_id, (first_point_coords, last_point_coords, flowline_length, mid_point_coords) in coords_dic.items():
         if first_point_coords in topology_dic:
             #for feature_id in topology_dic[first_point_coords]:
             for feature_id in topology_dic.pop(first_point_coords):
@@ -2746,7 +2762,7 @@ def Routing_Table(projdir, rootgrp, grid_obj, fdir, strm, Elev, Strahler, gages=
 
     # Iterate over coordinate dictionary​
     tic2 = time.time()
-    for idval, (top_xy, bot_xy, length) in coords_dic.items():
+    for idval, (top_xy, bot_xy, length, mid_xy) in coords_dic.items():
 
         # Get top/first coordinates values from DEM
         row, col = grid_obj.xy_to_grid_ij(top_xy[0], top_xy[1])
@@ -2771,7 +2787,8 @@ def Routing_Table(projdir, rootgrp, grid_obj, fdir, strm, Elev, Strahler, gages=
         NodeXY[idval] = (top_xy[0], top_xy[1])
 
         point = ogr.Geometry(ogr.wkbPoint)
-        point.AddPoint(top_xy[0], top_xy[1])
+        #point.AddPoint(top_xy[0], top_xy[1])        # Top of line
+        point.AddPoint(mid_xy[0], mid_xy[1])        # Midpoint of line
         point.Transform(coordTrans)                                      # Transform the geometry
         NodeLL[idval] = (point.GetX(), point.GetY())
         point = None
@@ -2779,6 +2796,9 @@ def Routing_Table(projdir, rootgrp, grid_obj, fdir, strm, Elev, Strahler, gages=
     print('  All dictionaries have been created in {0: 3.2f} seconds.'.format(time.time()-tic2))
 
     # Create new field in shapefile
+    field_defn = ogr.FieldDefn("link", ogr.OFTInteger64)
+    lyr.CreateField(field_defn)
+
     field_defn = ogr.FieldDefn("to", ogr.OFTInteger64)
     lyr.CreateField(field_defn)
 
@@ -2804,6 +2824,7 @@ def Routing_Table(projdir, rootgrp, grid_obj, fdir, strm, Elev, Strahler, gages=
     # Iterate over shapefile to add new values to the newly created field
     for feature in lyr:
         link_id = int(feature.GetField(id_field))
+        feature.SetField("link", link_id)
         feature.SetField("to", to_from_dic.get(link_id, 0))
         feature.SetField("Order_", StrOrder[link_id])
         feature.SetField("GageID", str(linkID_gage.get(link_id, None)))

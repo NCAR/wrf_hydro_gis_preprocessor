@@ -16,12 +16,13 @@ The scripts for the WRF-Hydro GIS Pre-processor rely on several python modules a
 | pyproj        | 3.4.1         |
 | python        | 3.10.9        |
 | whitebox      | 2.2.0         |
+| shapely       | 2.0.1         |
 
 If you are using Anaconda, creating a new, clean 'wrfh_gis_env' environment with these needed packages can be done easily and simply one of several ways:
 
 * In your conda shell, add one necessary channel (conda-forge) and then download the component libraries from the Anaconda cloud:
   + `conda config --add channels conda-forge`
-  + `conda create -n wrfh_gis_env -c conda-forge python=3.10 gdal netCDF4 numpy pyproj whitebox=2.2.0 packaging`
+  + `conda create -n wrfh_gis_env -c conda-forge python=3.10 gdal netCDF4 numpy pyproj whitebox=2.2.0 packaging shapely`
   
 * To activate this new environment, type the following at the conda prompt
   + `activate wrfh_gis_env`
