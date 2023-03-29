@@ -38,10 +38,12 @@ import osgeo
 try:
     if LooseVersion(osgeo.__version__) > LooseVersion('3.0.0'):
         from osgeo import osr
+        from osgeo import ogr
         from osgeo import gdal
         from osgeo.gdal_array import *
     else:
         import osr
+        import ogr
         import gdal
         from gdal_array import *
 except:
@@ -108,7 +110,13 @@ nclist = [wrfh.LDASFile,
             'lakes.shp', 'lakes.shx', 'lakes.shp.xml', 'lakes.sbx', 'lakes.sbn', 'lakes.prj', 'lakes.dbf',
             wrfh.GW_nc,
             wrfh.GWGRID_nc,
-            wrfh.minDepthCSV]
+            wrfh.minDepthCSV,
+            'Lake_Problems.csv',
+            'Old_New_LakeComIDs.csv',
+            'Lake_Link_Types.csv',
+            'Tossed_Lake_Link_Types.csv',
+            'Lake_Preprocssing_Info.txt',
+            'Lakes_with_minimum_depth.csv']
 
 '''Pre-defining the variables and populating variable attributes is
 a much faster strategry than creating and populating each variable
@@ -305,7 +313,7 @@ def GEOGRID_STANDALONE(inGeogrid,
             rootgrp2 = wrfh.forecast_points(in_csv, rootgrp2, basin_mask, projdir,
                         fine_grid.DX, fine_grid.WKT, fdir, fac, channelgrid)    # Forecast point processing
 
-    # Moved 10/9/2017 by KMS to allow masking routing files (LINKID, Route_Link, etc.) to forecast points if requested
+    # Allow masking routing files (LINKID, Route_Link, etc.) to forecast points if requested
     if routing:
         rootgrp2 = wrfh.Routing_Table(projdir, rootgrp2, fine_grid, fdir, channelgrid, fill, order, gages=AddGages)
     if cleanUp:
@@ -316,7 +324,32 @@ def GEOGRID_STANDALONE(inGeogrid,
     if os.path.exists(in_lakes):
         # Alter Channelgrid for reservoirs and build reservoir inputs
         print('    Reservoir polygons provided. Lake routing will be activated.')
-        rootgrp2 = wrfh.add_reservoirs(rootgrp2, projdir, fac, in_lakes, fine_grid, Gridded=gridded)
+        rootgrp2, lake_ID_field = wrfh.add_reservoirs(rootgrp2,
+                                                        projdir,
+                                                        fac,
+                                                        in_lakes,
+                                                        fine_grid,
+                                                        Gridded=gridded,
+                                                        lakeIDfield='ID')
+
+        # Attempt to add reservoirs onto reach-based routing configuation after lakes and reaches have been processed
+        # (added by KMS 3/28/2023)
+        if routing:
+            print('    Attempting to resolve reservoirs on reach-based routing network.')
+            in_RL = os.path.join(projdir, wrfh.RT_nc)
+            LakeNC = os.path.join(projdir, wrfh.LK_nc)
+            out_lakes = os.path.join(projdir, wrfh.LakesSHP)
+            if os.path.exists(in_RL) and os.path.exists(out_lakes):
+                # Run lake pre-processor
+                WaterbodyDict, Lake_Link_Type_arr, Old_New_LakeComID = wrfh.LK_main(projdir,
+                                                                                    in_RL,
+                                                                                    out_lakes,
+                                                                                    'link',
+                                                                                    lake_ID_field,
+                                                                                    Subset_arr=None,
+                                                                                    datestr=wrfh.datestr,
+                                                                                    LakeAssociation=wrfh.LakeAssoc,)
+                del WaterbodyDict, Lake_Link_Type_arr, Old_New_LakeComID
 
     # Check for NLINKS channel connectivity errors (added by KMS 3/27/2023)
     if check_nlinks:
