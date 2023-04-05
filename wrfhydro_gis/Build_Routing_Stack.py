@@ -488,11 +488,7 @@ if __name__ == '__main__':
     if args.retdeprtfac_val == all_defaults["retdeprtfac_val"]:
         print('    Using default RETDEPRTFAC parameter value: {0}'.format(all_defaults["retdeprtfac_val"]))
 
-    # Handle unsupported configurations
-    ##    if args.RB_routing and args.in_reservoirs is not None:
-    ##        print('  Reach-based routing with reservoirs configuration not currently supported in this version of the GIS Pre-processing tools. Try the ArcGIS version.')
-    ##        print('Exiting.')
-    ##        raise SystemExit
+    # Handle unsupported configurations - Currently none
 
     # This block allows us to continue to check for a valid file path while allowing the script later to avoid a NoneType error.
     args.in_Geogrid = os.path.abspath(args.in_Geogrid)                          # Obtain absolute path for required input file.

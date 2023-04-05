@@ -4216,8 +4216,14 @@ def LK_main(outDir, Flowline, Waterbody, link_ID_field, lake_ID_field, Subset_ar
 
     # Now we can update the input files (LAKEPARM.nc, RouteLink.nc, streams.shp, lakes.shp)
     update_RL = True
-    if update_RL:
-        in_RL = os.path.join(outDir, RT_nc)
+    if update_RL and Flowline:
+        print('      Updating the RouteLink file to include waterbody associations.')
+        if os.path.exists(Flowline):
+            in_RL = Flowline
+            print('      Using provided RouteLink file: {0}'.format(in_RL))
+        else:
+            in_RL = os.path.join(outDir, in_RL)
+            print('      Using RouteLink file from temporary directory: {0}'.format(in_RL))
 
         # Add lake association information into RouteLink
         rootgrp_RL = netCDF4.Dataset(in_RL, 'r+')
@@ -4229,6 +4235,7 @@ def LK_main(outDir, Flowline, Waterbody, link_ID_field, lake_ID_field, Subset_ar
 
         # Add lake association to output streams layer
         streams_vector_file = os.path.join(outDir, streams_vector)
+        print('      Updating the streams shapefile to include waterbody associations.')
         if os.path.exists(streams_vector_file):
             data_source = ogr.Open(streams_vector_file, 1)
             lyr = data_source.GetLayer()
@@ -4242,7 +4249,9 @@ def LK_main(outDir, Flowline, Waterbody, link_ID_field, lake_ID_field, Subset_ar
 
     update_LK = True
     if update_LK:
+        print('      Subsetting the LAKEPARM (if necessary) to include only valid waterbodies.')
         LakeNC = os.path.join(outDir, LK_nc)
+        print('      Using LAKEPARM file from temporary directory: {0}'.format(LakeNC))
 
         # Subset the LAKEPARM file by building a new one with a subset of the old values
         lk_subsetList = list(set(WaterbodyDict.values()))               # List of lakes to keep in LAKEPARM
@@ -4254,7 +4263,7 @@ def LK_main(outDir, Flowline, Waterbody, link_ID_field, lake_ID_field, Subset_ar
         out_lakes = out_lakes = os.path.join(outDir, LakesSHP)
         if os.path.exists(out_lakes):
             # Remove any lakes from the output feature class
-            print('    Removing lakes not on gridded channel network')
+            print('      Removing lakes from lakes shapefile that are not on the vector channel network')
             lake_ds = ogr.Open(out_lakes, 1)
             lake_layer = lake_ds.GetLayer()
             for feature in lake_layer:
