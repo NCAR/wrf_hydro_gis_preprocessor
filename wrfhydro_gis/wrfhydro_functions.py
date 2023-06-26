@@ -396,7 +396,7 @@ class WRF_Hydro_Grid:
             latitude_of_origin = globalAtts['CEN_LAT'].astype(numpy.float64)
 
         # Check to see if the input netCDF is a WPS-Generated Geogrid file.
-        if 'TITLE' in globalAtts and 'GEOGRID' in globalAtts['TITLE']:
+        if 'TITLE' in globalAtts and (('GEOGRID' in globalAtts['TITLE']) or ('WRF' in globalAtts['TITLE'])):
             self.isGeogrid = True
         else:
             self.isGeogrid = False
