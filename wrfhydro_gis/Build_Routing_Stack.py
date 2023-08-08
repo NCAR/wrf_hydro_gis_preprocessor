@@ -329,8 +329,8 @@ def GEOGRID_STANDALONE(inGeogrid,
                                                         fac,
                                                         in_lakes,
                                                         fine_grid,
-                                                        Gridded=gridded,
-                                                        lakeIDfield='ID')
+                                                        Gridded=gridded)
+#                                                        lakeIDfield='ID')
 
         # Attempt to add reservoirs onto reach-based routing configuation after lakes and reaches have been processed
         # (added by KMS 3/28/2023)
