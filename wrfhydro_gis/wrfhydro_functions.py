@@ -3088,19 +3088,23 @@ def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, 
         del Lk_chan, old_Lk_count, new_Lk_count
 
         # Reset the 1...n index and eliminate lakes from shapefile that were eliminated here
-        #num = 1                                                                 # Initialize the lake ID counter
+        num = 1                                                                 # Initialize the lake ID counter
         print('    Removing lakes not on gridded channel network')
         for feature in lake_layer:
             idval = feature.GetField(lakeID)
             if idval not in lake_uniques.tolist():
-                #print('      Removing lake: {0}'.format(idval))
+                # print('      Removing lake: {0}'.format(idval))
                 lake_layer.DeleteFeature(feature.GetFID())
             else:
-                #feature.SetField(lakeID, num)      # Add an area field to re-calculate area
-                #lake_layer.SetFeature(feature)
-                #num += 1
+                feature.SetField(lakeID, num)      # Add an area field to re-calculate area
+                lake_layer.SetFeature(feature)
+                Lake_arr[numpy.where(Lake_arr == idval)] = num
+                num += 1
                 pass
         lake_layer.ResetReading()
+        # Again because we changed ids and this is needed below
+        lake_uniques = numpy.unique(Lake_arr[Lake_arr!=NoDataVal])
+
     lake_ds = lake_layer = None
 
     # Save the gridded lake array to the Fulldom file
