@@ -415,8 +415,6 @@ def main_wrfinput_xarray(geoFile, wrfinFile, lai=8, outNCType='NETCDF4'):
     # Output file to disk
     #encoding = {varname:ncDS[varname].encoding for varname in list(ncDS.variables.keys())}
     encoding = {varname:{'_FillValue':None} for varname in list(ncDS.variables.keys())}
-    #for key, val in encoding.items():
-    #    val['_FillValue'] = None
     ncDS.to_netcdf(wrfinFile, mode='w', format=outNCType, encoding=encoding)
     ncDS.close()
     del encoding, ncDS

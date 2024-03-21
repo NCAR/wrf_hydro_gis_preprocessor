@@ -138,12 +138,19 @@ if __name__ == '__main__':
     print('    New Resolution: {0} {1}'.format(fine_grid.DX, -fine_grid.DY))
 
     # Build latitude and longitude arrays for GEOGRID_LDASOUT spatial metadata file
-    if 'time' in rootgrp.dimensions:
-        latArr = flip_grid(rootgrp.variables['XLAT_M'][0])                      # Extract array of GEOGRID latitude values
-        lonArr = flip_grid(rootgrp.variables['XLONG_M'][0])                     # Extract array of GEOGRID longitude values
+    if 'XLAT_M' in rootgrp.variables and 'XLONG_M' in rootgrp.variables:
+        lat_var = 'XLAT_M'
+        lon_var = 'XLONG_M'
+    elif 'XLAT' in rootgrp.variables and 'XLONG' in rootgrp.variables:
+        lat_var = 'XLAT'
+        lon_var = 'XLONG'
+
+    if 'time' in rootgrp.dimensions or 'Time' in rootgrp.dimensions:
+        latArr = flip_grid(rootgrp.variables[lat_var][0])                       # Extract array of GEOGRID latitude values
+        lonArr = flip_grid(rootgrp.variables[lon_var][0])                       # Extract array of GEOGRID longitude values
     else:
-        latArr = flip_grid(rootgrp.variables['XLAT'])                           # Extract array of GEOGRID latitude values
-        lonArr = flip_grid(rootgrp.variables['XLONG'])                          # Extract array of GEOGRID longitude values
+        latArr = flip_grid(rootgrp.variables[lat_var])                          # Extract array of GEOGRID latitude values
+        lonArr = flip_grid(rootgrp.variables[lon_var])                          # Extract array of GEOGRID longitude values
     rootgrp.close()
     del rootgrp
 
