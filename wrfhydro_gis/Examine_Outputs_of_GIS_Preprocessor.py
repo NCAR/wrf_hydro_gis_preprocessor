@@ -118,14 +118,14 @@ def examine_outputs(out_folder, dellist=[], skipfiles=[]):
                 GT = tuple(float(item) for item in GT)
                 print('  GeoTransform: {0}'.format(GT))
                 print('  DX: {0}'.format(GT[1]))
-                print('  DY: {0}'.format(-GT[5]))
+                print('  DY: {0}'.format(-abs(GT[5])))
 
                 proj = osr.SpatialReference()                                   # Initiate OSR spatial reference object
                 proj.ImportFromWkt(PE_string)
                 print('  PROJ.4 string: {0}'.format(proj.ExportToProj4()))
                 for variablename, ncvar in rootgrp.variables.items():
                     if ncvar.dimensions==('y', 'x'):
-                        OutRaster = numpy_to_Raster(ncvar[:].copy(), proj, GT[1], GT[5], GT[0], GT[3])
+                        OutRaster = numpy_to_Raster(ncvar[:].copy(), proj, GT[1], -abs(GT[5]), GT[0], GT[3])
 
                         # Save to disk
                         OutGTiff = os.path.join(out_folder, variablename+suffix)# Output raster

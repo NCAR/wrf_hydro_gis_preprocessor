@@ -370,8 +370,10 @@ class WRF_Hydro_Grid:
         # Collect grid corner XY and DX DY for creating ascii raster later
         if 'corner_lats' in globalAtts:
             corner_lat = globalAtts['corner_lats'][corner_index].astype(numpy.float64)
+            corner_lat = numpy.clip(corner_lat, -90.0, 90.0)
         if 'corner_lons' in globalAtts:
             corner_lon = globalAtts['corner_lons'][corner_index].astype(numpy.float64)
+            corner_lon = numpy.clip(corner_lon, -180.0, 180.0)
         if 'DX' in globalAtts:
             self.DX = globalAtts['DX'].astype(numpy.float32)
         if 'DY' in globalAtts:
@@ -388,6 +390,8 @@ class WRF_Hydro_Grid:
             pole_latitude = globalAtts['POLE_LAT'].astype(numpy.float64)
         if 'POLE_LON' in globalAtts:
             pole_longitude = globalAtts['POLE_LON'].astype(numpy.float64)
+        if 'CEN_LON' in globalAtts:
+            central_longitude = globalAtts['CEN_LON'].astype(numpy.float64)
         if 'MOAD_CEN_LAT' in globalAtts:
             print('    Using MOAD_CEN_LAT for latitude of origin.')
             latitude_of_origin = globalAtts['MOAD_CEN_LAT'].astype(numpy.float64)
@@ -503,7 +507,12 @@ class WRF_Hydro_Grid:
 
         elif self.map_pro == 3:
             # Mercator Projection
-            proj.SetMercator(standard_parallel_1, central_meridian, 1, 0, 0)     # Scale = 1???
+
+            # Trap nonesense values produced by WPS
+            if central_meridian >= 1e20:
+                proj.SetMercator(standard_parallel_1, central_longitude, 1, 0, 0)     # Scale = 1???
+            else:
+                proj.SetMercator(standard_parallel_1, central_meridian, 1, 0, 0)     # Scale = 1???
             #proj.SetMercator(latitude_of_origin, central_meridian, 1, 0, 0)     # Scale = 1???
             #proj.SetMercator(double clat, double clong, double scale, double fe, double fn)
 
@@ -532,9 +541,9 @@ class WRF_Hydro_Grid:
             wgs84_proj.SetAxisMappingStrategy(osgeo.osr.OAMS_TRADITIONAL_GIS_ORDER)
             proj.SetAxisMappingStrategy(osgeo.osr.OAMS_TRADITIONAL_GIS_ORDER)
 
-        transform = osr.CoordinateTransformation(wgs84_proj, proj)
         point = ogr.Geometry(ogr.wkbPoint)
         point.AddPoint_2D(corner_lon, corner_lat)
+        transform = osr.CoordinateTransformation(wgs84_proj, proj)
         point.Transform(transform)
         self.x00 = point.GetX(0)
         self.y00 = point.GetY(0)
