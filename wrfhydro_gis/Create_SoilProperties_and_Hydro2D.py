@@ -607,7 +607,6 @@ def main_soilProp(geoFile,
                 #pnew[pnew>fillValue] = soilWater
             else:
                 pnew = solmap.copy()
-                #paramVar = ncvar[0]
                 paramVar = ncvar[:]
 
                 # Create 2D replacement matrix
