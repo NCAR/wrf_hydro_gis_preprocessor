@@ -711,7 +711,10 @@ def main_soilProp(geoFile,
             else:
                 print('  SOILCOMP variable not in the input GEOGRID file.')
                 print('    Updating Soil Texture in GEOGRID file.')
-                soil_texture = solmap.copy()
+                #soil_texture = solmap.copy()                       # Will only be SCT_DOM!
+                soil_texture = ncvar[0]
+                soil_texture[np.logical_and(vegmap!=vegWater, soil_texture==soilWater)] = soilFillVal
+                soil_texture[vegmap==vegWater] = soilWater
 
             # Write output to NetCDF
             ncvar[0] = soil_texture
@@ -724,12 +727,10 @@ def main_soilProp(geoFile,
                 ncvar2[0,stype-1] = tmp
             del ncvar, ncvar2, soil_texture, tmp
 
-    # Update the soil map in case of changes (above)
-    vegmap = rootgrp_geo.variables['LU_INDEX'][0]
-    solmap = rootgrp_geo.variables['SCT_DOM'][0]
-
     # Populate hydro2d file
     print(f'Updating: {hyd2dFile}')
+    vegmap = rootgrp_geo.variables['LU_INDEX'][0]
+    solmap = rootgrp_geo.variables['SCT_DOM'][0]
 
     # Loop through params and update
     paramList = rootgrp_hyd.variables
