@@ -483,7 +483,11 @@ def main_soilProp(geoFile,
     # Copy dimensions from GEOGRID file
     for dimname, dim in rootgrp_geo.dimensions.items():
         if dimname in dims2D:
-            rootgrp_SP.createDimension(dimname, len(dim))                       # Copy dimensions from the GEOGRID file
+            if dimname == 'Time':
+                dimlen = None                                                   # Make Time an unlimited dimension
+            else:
+                dimlen =len(dim)
+            rootgrp_SP.createDimension(dimname, dimlen)                         # Copy dimensions from the GEOGRID file
     soildim = rootgrp_SP.createDimension(soilDimName, nsoil)                    # Add soil_layers_stag dimension
     del dimname, dim, soildim
 
@@ -502,12 +506,13 @@ def main_soilProp(geoFile,
     rootgrp_SP.setncatts(ncatts)
 
     # Create new hydro2d file with fill values
+    dims2D_hyd = [item for item in dims2D if item!='Time']
     rootgrp_hyd = netCDF4.Dataset(hydFile, 'w', format=outNCType)           # Write object to create output file
     for dimname, dim in rootgrp_geo.dimensions.items():
-        if dimname in dims2D:
+        if dimname in dims2D_hyd:
             rootgrp_hyd.createDimension(dimname, len(dim))                  # Copy dimensions from the GEOGRID file
     for varname in nameLookupHyd.keys():
-        rootgrp_hyd.createVariable(varname, 'f4', dims2D[1:], fill_value=fillValue)
+        rootgrp_hyd.createVariable(varname, 'f4', dims2D_hyd, fill_value=fillValue)
     rootgrp_hyd.setncatts(ncatts)
     del dimname, dim, varname
 
@@ -602,7 +607,8 @@ def main_soilProp(geoFile,
                 #pnew[pnew>fillValue] = soilWater
             else:
                 pnew = solmap.copy()
-                paramVar = ncvar[0]
+                #paramVar = ncvar[0]
+                paramVar = ncvar[:]
 
                 # Create 2D replacement matrix
                 replaceArr = np.array([soilTblDf.solID.values, soilTblDf[paramName]])
