@@ -27,9 +27,7 @@
 # *=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
 
 '''
-03/03/2022
-    Confirmed identical results with default settings in create_soilproperties.R
-    script using Alaska NPS domain.
+09/09/2024
 '''
 
 # Screen print in case invalid parameters are given
@@ -60,20 +58,19 @@ from argparse import ArgumentParser
 # Update relevant arguments below.
 #######################################################
 
+#### Land cover classification system?
+# Options: ["USGS", "MODIS"]
+landClass = "USGS"
+
+# Select which soil parameter set to use from SOILPARM.TBL ['STAS', 'STAS-RUC']
+soilparm_set = 'STAS'
+
 # Use SOILCOMP?
 useSoilComp = False
 
 # Update texture class in geogrid??
 # Note that if TRUE, the script will overwrite the geogrid file specified above.
 updateTexture = False
-
-#### Land cover classification system?
-# Options: USGS or MODIS
-landClass = "USGS"
-#landClass = "MODIS"
-
-# Select which soil parameter set to use from SOILPARM.TBL ['STAS', 'STAS-RUC']
-soilparm_set = 'STAS'
 
 #### Category to fill in for soil class if a cell is water in the soil layer but NOT water in the land cover layer:
 # If the script encounters a cell that is classified as land in the land use field (LU_INDEX) but is
