@@ -3037,15 +3037,6 @@ def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, 
     lake_ds  = ogr.GetDriverByName(VectorDriver).CopyDataSource(lake_ds, outshp)
     lake_layer = lake_ds.GetLayer()
 
-    # Add and re-calculate area information for new, clipped and reprojected lake polygons
-    lake_layer.CreateField(ogr.FieldDefn('AREASQKM', ogr.OFTReal))              # Add a single field to the new layer
-    for feature in lake_layer:
-        geometry = feature.GetGeometryRef()                                     # Get the geometry object from this feature
-        feature.SetField('AREASQKM', float(geometry.Area()/1000000.0))          # Add an area field to re-calculate area
-        lake_layer.SetFeature(feature)
-        feature = geometry = None
-    lake_layer.ResetReading()
-
     # Assign a new ID field for lakes, numbered 1...n. Add field to store this information if necessary
     if lakeIDfield is None:
         print('    Adding auto-incremented lake ID field (1...n)')
@@ -3060,23 +3051,6 @@ def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, 
     else:
         print('    Using provided lake ID field: {0}'.format(lakeIDfield))
         lakeID = lakeIDfield                                                    # Use existing field specified by 'lakeIDfield' parameter
-
-    # Generate dictionary of areas, and centroid lat/lon for populatingLAKEPARM.nc
-    print('    Starting to gather lake centroid and area information.')
-    cen_lats = {}
-    cen_lons = {}
-    areas = {}
-    for feature in lake_layer:
-        idval = feature.GetField(lakeID)
-        areas[idval] = feature.GetField('AREASQKM')
-        centroid = feature.GetGeometryRef().Centroid()
-        centroid.Transform(coordTrans)                                      # Transform the geometry
-        cen_lats[idval] = centroid.GetY()
-        cen_lons[idval] = centroid.GetX()
-        feature = centroid = None
-    lake_layer.ResetReading()
-    print('    Done gathering lake centroid information.')
-    lakeIDList = list(areas.keys())
 
     # Convert lake geometries to raster geometries on the model grid
     LakeRaster = FeatToRaster(outshp, fac, lakeID, gdal.GDT_Int32, NoData=NoDataVal)
@@ -3111,6 +3085,33 @@ def add_reservoirs(rootgrp, projdir, fac, in_lakes, grid_obj, lakeIDfield=None, 
                 Lake_arr[Lake_arr == idval] = num
                 num += 1
         lake_layer.ResetReading()
+
+    # Add and re-calculate area information for new, clipped and reprojected lake polygons
+    lake_layer.CreateField(ogr.FieldDefn('AREASQKM', ogr.OFTReal))              # Add a single field to the new layer
+    for feature in lake_layer:
+        geometry = feature.GetGeometryRef()                                     # Get the geometry object from this feature
+        feature.SetField('AREASQKM', float(geometry.Area()/1000000.0))          # Add an area field to re-calculate area
+        lake_layer.SetFeature(feature)
+        feature = geometry = None
+    lake_layer.ResetReading()
+
+    # Generate dictionary of areas, and centroid lat/lon for populatingLAKEPARM.nc
+    print('    Starting to gather lake centroid and area information.')
+    cen_lats = {}
+    cen_lons = {}
+    areas = {}
+    for feature in lake_layer:
+        idval = feature.GetField(lakeID)
+        areas[idval] = feature.GetField('AREASQKM')
+        centroid = feature.GetGeometryRef().Centroid()
+        centroid.Transform(coordTrans)                                      # Transform the geometry
+        cen_lats[idval] = centroid.GetY()
+        cen_lons[idval] = centroid.GetX()
+        feature = centroid = None
+    lake_layer.ResetReading()
+    print('    Done gathering lake centroid information.')
+    lakeIDList = list(areas.keys())
+    
     lake_ds = lake_layer = None
 
     # Recalculate unique lakes if lake ids were re-assigned
