@@ -156,6 +156,19 @@ def is_valid_file(parser, arg):
     else:
         return str(arg)
 
+
+# Function to interpret string inputs to boolean output
+def str_to_bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+
+
 def GEOGRID_STANDALONE(inGeogrid,
                         regridFactor,
                         inDEM,
@@ -404,12 +417,12 @@ if __name__ == '__main__':
                         help="Path to input forecast point CSV file [OPTIONAL]")
     parser.add_argument("-b",
                         dest="basin_mask",
-                        type=bool,
+                        type=str_to_bool,
                         default=False,
                         help="Mask CHANNELGRID variable to forecast basins? [True/False]. default=False")
     parser.add_argument("-r",
                         dest="RB_routing",
-                        type=bool,
+                        type=str_to_bool,
                         default=False,
                         help="Create reach-based routing (RouteLink) files? [True/False]. default=False")
     parser.add_argument("-l",

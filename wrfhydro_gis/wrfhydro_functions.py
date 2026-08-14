@@ -2271,6 +2271,8 @@ def CSV_to_SHP(in_csv, DriverName='MEMORY', xVar='LON', yVar='LAT', idVar='FID',
 
     # Read the input CSV file
     csv_arr = numpy.genfromtxt(in_csv, delimiter=',', names=True)
+    # Fix for a CSV with a single gage
+    csv_arr = numpy.atleast_1d(csv_arr)
 
     # create the spatial reference for the input point CSV file, WGS84
     srs = osr.SpatialReference()
