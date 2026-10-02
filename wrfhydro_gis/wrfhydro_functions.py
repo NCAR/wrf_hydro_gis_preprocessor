@@ -4317,7 +4317,8 @@ def obtain_LakeParameters(in_NC, subsetList=None):
         subsetList = IDs.tolist()
 
     # Must convert square kilometers in input file back to square meters before going into build_LAKEPARM function
-    areas = {key:val*float(1000000) for key,val in zip(IDs, ncVars['LkArea'][:]) if key in subsetList}
+    #areas = {key:val*float(1000000) for key,val in zip(IDs, ncVars['LkArea'][:]) if key in subsetList}
+    areas = {key: val for key, val in zip(IDs, ncVars['LkArea'][:]) if key in subsetList}   # bug fix, 10/2/2026
     max_elevs = {key:val for key,val in zip(IDs, ncVars['LkMxE'][:]) if key in subsetList}
     OrificEs = {key:val for key,val in zip(IDs, ncVars['OrificeE'][:]) if key in subsetList}
     cen_lats = {key:val for key,val in zip(IDs, ncVars['lat'][:]) if key in subsetList}
