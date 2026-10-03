@@ -362,6 +362,7 @@ def Read_GEOGRID_for_SRS_old(in_nc, Variable):
         # Set the origin for the output raster (in GDAL, usuall upper left corner) using projected corner coordinates
         wgs84_proj = osr.SpatialReference()
         wgs84_proj.ImportFromEPSG(4326)
+        wgs84_proj.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
         transform = osr.CoordinateTransformation(wgs84_proj, proj1)
         point = ogr.Geometry(ogr.wkbPoint)
         point.AddPoint_2D(lon, lat)
@@ -482,6 +483,7 @@ def Read_GEOGRID_for_SRS(in_nc):
     # Set the origin for the output raster (in GDAL, usuall upper left corner) using projected corner coordinates
     wgs84_proj = osr.SpatialReference()
     wgs84_proj.ImportFromEPSG(4326)
+    wgs84_proj.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
     transform = osr.CoordinateTransformation(wgs84_proj, proj1)
     point = ogr.Geometry(ogr.wkbPoint)
     point.AddPoint_2D(corner_lon, corner_lat)
@@ -575,6 +577,7 @@ def create_polygons_from_info(gridder_obj, proj1, outputFile, outDriverName, tic
 
     point_ref=ogr.osr.SpatialReference()
     point_ref.ImportFromEPSG(4326)                                              # WGS84
+    point_ref.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
     #coordTrans2 = ogr.osr.CoordinateTransformation(proj1, point_ref)            # Create transformation for converting to WGS84
 
     # Pull info out of th gridder object in order to create a polygon
