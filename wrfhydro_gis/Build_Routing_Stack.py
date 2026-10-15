@@ -116,7 +116,8 @@ nclist = [wrfh.LDASFile,
             'Lake_Link_Types.csv',
             'Tossed_Lake_Link_Types.csv',
             'Lake_Preprocssing_Info.txt',
-            'Lakes_with_minimum_depth.csv']
+            'Lakes_with_minimum_depth.csv',
+            'Gage_Crosswalk.csv']
 
 '''Pre-defining the variables and populating variable attributes is
 a much faster strategry than creating and populating each variable
@@ -321,14 +322,21 @@ def GEOGRID_STANDALONE(inGeogrid,
         wrfh.remove_file(outDEM)                                                # Delete output DEM from disk
 
     # If the user provides forecast points as a CSV file, alter outputs accordingly
+    # if AddGages:
+    #     if os.path.exists(in_csv):
+    #         rootgrp2 = wrfh.forecast_points(in_csv, rootgrp2, basin_mask, projdir,
+    #                     fine_grid.DX, fine_grid.WKT, fdir, fac, channelgrid)    # Forecast point processing
+
+    gage_lookup = None
     if AddGages:
         if os.path.exists(in_csv):
-            rootgrp2 = wrfh.forecast_points(in_csv, rootgrp2, basin_mask, projdir,
+            rootgrp2, gage_lookup = wrfh.forecast_points(in_csv, rootgrp2, basin_mask, projdir,
                         fine_grid.DX, fine_grid.WKT, fdir, fac, channelgrid)    # Forecast point processing
 
     # Allow masking routing files (LINKID, Route_Link, etc.) to forecast points if requested
     if routing:
-        rootgrp2 = wrfh.Routing_Table(projdir, rootgrp2, fine_grid, fdir, channelgrid, fill, order, gages=AddGages)
+        # rootgrp2 = wrfh.Routing_Table(projdir, rootgrp2, fine_grid, fdir, channelgrid, fill, order, gages=AddGages)
+        rootgrp2 = wrfh.Routing_Table(projdir, rootgrp2, fine_grid, fdir, channelgrid, fill, order, gages=AddGages, gage_lookup=gage_lookup)
     if cleanUp:
         wrfh.remove_file(fill)                                                  # Delete fill from disk
         wrfh.remove_file(order)                                                 # Delete order from disk

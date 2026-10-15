@@ -2259,7 +2259,23 @@ def WB_functions(rootgrp, indem, projdir, threshold, ovroughrtfac_val, retdeprtf
     print('    Terrain processing step completed without error in {0: 3.2f} seconds.'.format(time.time()-tic1))
     return rootgrp, dir_d8_file, flow_acc_file, streams_file, fill_pits_file, strahler_file
 
-def CSV_to_SHP(in_csv, DriverName='MEMORY', xVar='LON', yVar='LAT', idVar='FID', toProj=None):
+
+def validate_gage_ids(ids, max_len=15):
+    problems = []
+    for row, g in enumerate(ids, start=2):          # row 2 = first data row
+        if not g:              problems.append('row {0}: blank ID'.format(row))
+        elif len(g) > max_len: problems.append('row {0}: "{1}" exceeds {2} chars'.format(row, g, max_len))
+        elif not g.isascii():  problems.append('row {0}: "{1}" has non-ASCII characters'.format(row, g))
+        elif ' ' in g:         problems.append('row {0}: "{1}" contains a space'.format(row, g))
+    dupes = [g for g, c in collections.Counter(ids).items() if c > 1]
+    if dupes: problems.append('duplicate IDs: {0}'.format(', '.join(dupes)))
+    if problems:
+        print('    Forecast point CSV errors:\n      ' + '\n      '.join(problems))
+        raise SystemExit
+
+
+# def CSV_to_SHP(in_csv, DriverName='MEMORY', xVar='LON', yVar='LAT', idVar='FID', toProj=None):
+def CSV_to_SHP(in_csv, DriverName='MEMORY', xVar='LON', yVar='LAT', idVar='FID', toProj=None, id_as_text=False, rasterVar='RASTID'):
     tic1 = time.time()
 
     drv = ogr.GetDriverByName(DriverName)
@@ -2269,10 +2285,20 @@ def CSV_to_SHP(in_csv, DriverName='MEMORY', xVar='LON', yVar='LAT', idVar='FID',
     else:
         data_source = drv.CreateDataSource('')
 
+    # # Read the input CSV file
+    # csv_arr = numpy.genfromtxt(in_csv, delimiter=',', names=True)
+    # # Fix for a CSV with a single gage
+    # csv_arr = numpy.atleast_1d(csv_arr)
+
     # Read the input CSV file
-    csv_arr = numpy.genfromtxt(in_csv, delimiter=',', names=True)
-    # Fix for a CSV with a single gage
-    csv_arr = numpy.atleast_1d(csv_arr)
+    if id_as_text:
+        with open(in_csv, newline='', encoding='utf-8-sig') as f:
+            rows = list(csv.DictReader(f))
+        ids = [r[idVar].strip() for r in rows]
+        validate_gage_ids(ids)
+    else:
+        csv_arr = numpy.genfromtxt(in_csv, delimiter=',', names=True)
+        csv_arr = numpy.atleast_1d(csv_arr)                                     # Fix for a CSV with a single gage
 
     # create the spatial reference for the input point CSV file, WGS84
     srs = osr.SpatialReference()
@@ -2295,19 +2321,42 @@ def CSV_to_SHP(in_csv, DriverName='MEMORY', xVar='LON', yVar='LAT', idVar='FID',
 
     # Add the fields we're interested in
     layer = data_source.CreateLayer('frxst_FC', out_srs, ogr.wkbPoint)
-    layer.CreateField(ogr.FieldDefn(idVar, ogr.OFTInteger))
+    # layer.CreateField(ogr.FieldDefn(idVar, ogr.OFTInteger))
+    if id_as_text:
+        layer.CreateField(ogr.FieldDefn(rasterVar, ogr.OFTInteger))
+        id_defn = ogr.FieldDefn(idVar, ogr.OFTString)
+        id_defn.SetWidth(15)
+        layer.CreateField(id_defn)
+    else:
+        layer.CreateField(ogr.FieldDefn(idVar, ogr.OFTInteger))
     layer.CreateField(ogr.FieldDefn(yVar, ogr.OFTReal))
     layer.CreateField(ogr.FieldDefn(xVar, ogr.OFTReal))
     featureDefn = layer.GetLayerDefn()
 
     # Process the text file and add the attributes and features to the shapefile
-    for row in csv_arr:
-        x = row[xVar]
-        y = row[yVar]
+    # for row in csv_arr:
+    #     x = row[xVar]
+    #     y = row[yVar]
+    #
+    #     # Set the attributes using the values from the delimited text file
+    #     feature = ogr.Feature(featureDefn)                               # create the feature
+    #     feature.SetField(idVar, row[idVar])
+    #     feature.SetField(yVar, y)
+    #     feature.SetField(xVar, x)
+
+    if id_as_text:
+        records = [(float(r[xVar]), float(r[yVar]), gid, n) for n, (r, gid) in enumerate(zip(rows, ids), start=1)]
+    else:
+        records = [(row[xVar], row[yVar], row[idVar], None) for row in csv_arr]
+    lookup = {}
+    for x, y, gid, n in records:
 
         # Set the attributes using the values from the delimited text file
         feature = ogr.Feature(featureDefn)                               # create the feature
-        feature.SetField(idVar, row[idVar])
+        feature.SetField(idVar, gid)
+        if id_as_text:
+            feature.SetField(rasterVar, n)
+            lookup[n] = gid
         feature.SetField(yVar, y)
         feature.SetField(xVar, x)
 
@@ -2324,7 +2373,7 @@ def CSV_to_SHP(in_csv, DriverName='MEMORY', xVar='LON', yVar='LAT', idVar='FID',
         feature = point = None
         del x, y
     layer = srs = drv = None                                      # Saveand close the data source
-    return data_source
+    return (data_source, lookup) if id_as_text else data_source
 
 def forecast_points(in_csv, rootgrp, bsn_msk, projdir, DX, WKT, fdir, fac, strm):
     # (in_csv, rootgrp, bsn_msk, projdir, template_raster) = (in_csv, rootgrp2, basin_mask, projdir, mosprj)
@@ -2344,7 +2393,8 @@ def forecast_points(in_csv, rootgrp, bsn_msk, projdir, DX, WKT, fdir, fac, strm)
     # Make feature layer from CSV
     print('    Forecast points provided and basins being delineated.')
     frxst_FC = os.path.join(projdir, 'Temp_Frxst_Pts.shp')
-    ds = CSV_to_SHP(in_csv, DriverName='MEMORY', xVar='LON', yVar='LAT', idVar='FID', toProj=WKT)  # In-memory features
+    # ds = CSV_to_SHP(in_csv, DriverName='MEMORY', xVar='LON', yVar='LAT', idVar='FID', toProj=WKT)  # In-memory features
+    ds, gage_lookup = CSV_to_SHP(in_csv, DriverName='MEMORY', xVar='LON', yVar='LAT', idVar='FID', toProj=WKT, id_as_text=True)
     out_ds = ogr.GetDriverByName(VectorDriver).CopyDataSource(ds, frxst_FC)    # Copy to file on disk
     ds = out_ds = None
 
@@ -2352,13 +2402,18 @@ def forecast_points(in_csv, rootgrp, bsn_msk, projdir, DX, WKT, fdir, fac, strm)
     wbt.jenson_snap_pour_points(frxst_FC, strm, snapPour1, snap_dist2)
 
     # Convert point shapefile to raster
-    frxst_raster = FeatToRaster(frxst_FC, fac, 'FID', gdal.GDT_Int32, NoData=NoDataVal)
+    frxst_raster = FeatToRaster(frxst_FC, fac, 'RASTID', gdal.GDT_Int32, NoData=NoDataVal)
     frxst_raster_arr = BandReadAsArray(frxst_raster.GetRasterBand(1))
     frxst_raster = None
     frxst_raster_arr[frxst_raster_arr==0] = NoDataVal                           # Replace 0 with WRF-Hydro NoData value
     rootgrp.variables['frxst_pts'][:] = frxst_raster_arr
     print('    Process: frxst_pts written to output netCDF.')
     del frxst_raster_arr
+
+    with open(os.path.join(projdir, 'Gage_Crosswalk.csv'), 'w', newline='') as f:
+        w = csv.writer(f)
+        w.writerow(['frxst_pts', 'GageID'])
+        w.writerows(sorted(gage_lookup.items()))
 
     # Snap pour points to flow accumulation grid within a tolerance
     wbt.snap_pour_points(frxst_FC, fac, snapPour2, snap_dist2)
@@ -2404,7 +2459,7 @@ def forecast_points(in_csv, rootgrp, bsn_msk, projdir, DX, WKT, fdir, fac, strm)
     del watershed_arr
 
     print('    Built forecast point outputs in {0: 3.2f} seconds.'.format(time.time()-tic1))
-    return rootgrp
+    return rootgrp, gage_lookup
 
 def build_RouteLink(RoutingNC, order, From_To, NodeElev, NodesLL, NodesXY, Lengths, StrOrder, Slopes, gageDict=None):
     '''
@@ -2559,11 +2614,17 @@ def build_RouteLink(RoutingNC, order, From_To, NodeElev, NodesLL, NodesXY, Lengt
         BtmWdths[:] = BtmWdth
 
     # Added 10/10/2017 by KMS to include user-supplied gages in reach-based routing files
+    # if gageDict is not None:
+    #     Gages[:,:] = numpy.asarray([tuple(str(gageDict[arcid]).rjust(15)) if arcid in gageDict else tuple('               ') for arcid in order])
+    # else:
+    #     Gages[:,:] = numpy.asarray([tuple('               ') for arcid in order])    # asarray converts from tuple to array
+    # del gageDict
+
     if gageDict is not None:
-        Gages[:,:] = numpy.asarray([tuple(str(gageDict[arcid]).rjust(15)) if arcid in gageDict else tuple('               ') for arcid in order])
+        gage_strs = [gageDict.get(arcid, '').rjust(15) for arcid in order]
     else:
-        Gages[:,:] = numpy.asarray([tuple('               ') for arcid in order])    # asarray converts from tuple to array
-    del gageDict
+        gage_strs = [' ' * 15] * len(order)
+    Gages[:,:] = netCDF4.stringtochar(numpy.array(gage_strs, dtype='S15'))
 
     # Close file
     rootgrp.close()
@@ -2582,7 +2643,8 @@ def find_line_midpoint(geom):
     del midPoint, shapelyLine
     return outGeom
 
-def Routing_Table(projdir, rootgrp, grid_obj, fdir, strm, Elev, Strahler, gages=False, Lakes=None):
+# def Routing_Table(projdir, rootgrp, grid_obj, fdir, strm, Elev, Strahler, gages=False, Lakes=None):
+def Routing_Table(projdir, rootgrp, grid_obj, fdir, strm, Elev, Strahler, gages=False, Lakes=None, gage_lookup=None):
     """If "Create reach-based routing files?" is selected, this function will create
     the Route_Link.nc table and Streams.shp shapefiles in the output directory."""
 
@@ -2696,16 +2758,34 @@ def Routing_Table(projdir, rootgrp, grid_obj, fdir, strm, Elev, Strahler, gages=
     rootgrp.variables['STREAMORDER'][:] = strorder_arr
     del channel_arr, strorder_arr, grid_reach_IDs, missing_reach_IDs
 
-    gage_linkID = {}
+    # gage_linkID = {}
+    # if gages:
+    #     print('        Adding forecast points:LINKID association.')
+    #     gage_arr = rootgrp.variables['frxst_pts'][:]
+    #     unique_gages = numpy.unique(gage_arr[gage_arr!=NoDataVal])
+    #     gage_linkID = {gage:strm_link_arr[gage_arr==gage][0] for gage in unique_gages}    # Create blank dictionary so that it exists and can be deleted later
+    #     print('        Found {0} forecast point:LINKID associations.'.format(len(gage_linkID)))
+    #     del unique_gages, gage_arr
+    # linkID_gage = {val:key for key, val in gage_linkID.items()}                 # Reverse the dictionary
+    # del strm_link_arr, ndv, gage_linkID
+
+    linkID_gage = {}
     if gages:
         print('        Adding forecast points:LINKID association.')
         gage_arr = rootgrp.variables['frxst_pts'][:]
-        unique_gages = numpy.unique(gage_arr[gage_arr!=NoDataVal])
-        gage_linkID = {gage:strm_link_arr[gage_arr==gage][0] for gage in unique_gages}    # Create blank dictionary so that it exists and can be deleted later
-        print('        Found {0} forecast point:LINKID associations.'.format(len(gage_linkID)))
-        del unique_gages, gage_arr
-    linkID_gage = {val:key for key, val in gage_linkID.items()}                 # Reverse the dictionary
-    del strm_link_arr, ndv, gage_linkID
+        for g in numpy.unique(gage_arr[gage_arr != NoDataVal]):
+            gage_str = gage_lookup.get(int(g), str(g)) if gage_lookup else str(g)
+            link = int(strm_link_arr[gage_arr == g][0])
+            if link == NoDataVal:
+                print('        WARNING: gage {0} is not on a channel cell; not written to RouteLink.'.format(gage_str))
+                continue
+            if link in linkID_gage:
+                print('        WARNING: gages {0} and {1} share link {2}; keeping {0}.'.format(linkID_gage[link],
+                                                                                               gage_str, link))
+                continue
+            linkID_gage[link] = gage_str
+        print('        Found {0} forecast point:LINKID associations.'.format(len(linkID_gage)))
+    del strm_link_arr, ndv
 
     # Setup coordinate transform for calculating lat/lon from x/y
     wgs84_proj = osr.SpatialReference()
@@ -2849,7 +2929,8 @@ def Routing_Table(projdir, rootgrp, grid_obj, fdir, strm, Elev, Strahler, gages=
         feature.SetField("link", link_id)
         feature.SetField("to", to_from_dic.get(link_id, 0))
         feature.SetField("Order_", StrOrder[link_id])
-        feature.SetField("GageID", str(linkID_gage.get(link_id, None)))
+        # feature.SetField("GageID", str(linkID_gage.get(link_id, None)))
+        feature.SetField("GageID", linkID_gage.get(link_id, ''))
         feature.SetField("LakeID", NoDataVal)
         feature.SetField("length", Lengths[link_id])
         feature.SetField("Slope", slope_dic[link_id])
