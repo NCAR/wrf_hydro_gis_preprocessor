@@ -32,6 +32,7 @@ from argparse import ArgumentParser
 import platform                                                                 # Added 8/20/2020 to detect OS
 
 # Import Additional Modules
+import numpy
 import netCDF4
 import osgeo
 
@@ -82,6 +83,8 @@ default_ovroughrtfac_val = 1.0
 default_retdeprtfac_val = 1.0
 default_threshold = 200
 default_lksatfac_val = wrfh.lksatfac_val
+default_ctsm_grid = 1000.0                                                     # Base grid cell size (meters) when a CTSM surface dataset is the input
+default_bbox_res = 1000.0                                                       # Base grid cell size (meters) when a bounding box is the input
 
 # Script options
 runGEOGRID_STANDALONE = True                                                    # Switch for testing the GEOGRID STANDALONE Pre-processing workflow
@@ -187,13 +190,22 @@ def GEOGRID_STANDALONE(inGeogrid,
                         retdeprtfac_val = 1.0,
                         lksatfac_val = 1000.0,
                         startPts = None,
-                        channel_mask = None):
+                        channel_mask = None,
+                        ctsm_grid = default_ctsm_grid,
+                        bbox = None,
+                        bbox_res = default_bbox_res):
     '''
     This function will validate input parameters and attempt to run the full routing-
     stack GIS pre-processing for WRF-Hydro. The inputs will be related to the domain,
     the desired routing nest factor, and other options and parameter values. The
     output will be a routing stack zip file with WRF-Hydro domain and parameter
     files.
+
+    The domain (inGeogrid) may be a WPS geogrid file or a CTSM surface dataset (a
+    netCDF file with LATIXY and LONGXY variables). For a CTSM surface dataset, ctsm_grid
+    is the grid cell size in meters. Alternatively, a bounding box may be provided as
+    bbox=(min_lon, max_lon, min_lat, max_lat) in decimal degrees, with a grid cell
+    size in meters of bbox_res. When bbox is provided, inGeogrid is not used.
     '''
 
     global defaultGWmethod
@@ -217,22 +229,35 @@ def GEOGRID_STANDALONE(inGeogrid,
     else:
         print('    Reach-based routing files will not be created.')
 
-    # Step 1 - Georeference geogrid file
-    rootgrp = netCDF4.Dataset(inGeogrid, 'r')                                   # Establish an object for reading the input NetCDF files
-    globalAtts = rootgrp.__dict__                                               # Read all global attributes into a dictionary
-    if LooseVersion(netCDF4.__version__) > LooseVersion('1.4.0'):
-        rootgrp.set_auto_mask(False)                                            # Change masked arrays to old default (numpy arrays always returned)
-    coarse_grid = wrfh.WRF_Hydro_Grid(rootgrp)                                  # Instantiate a grid object
+    # Step 1 - Georeference geogrid file, CTSM surface dataset, or bounding box
+    if bbox is not None:
+        rootgrp = None                                                          # No input netCDF file when using a bounding box
+        globalAtts = {}
+        coarse_grid = wrfh.WRF_Hydro_Grid(rootgrp=None, bbox=bbox, bbox_res=bbox_res)   # Instantiate a grid object
+    else:
+        rootgrp = netCDF4.Dataset(inGeogrid, 'r')                               # Establish an object for reading the input NetCDF files
+        globalAtts = rootgrp.__dict__                                           # Read all global attributes into a dictionary
+        if LooseVersion(netCDF4.__version__) > LooseVersion('1.4.0'):
+            rootgrp.set_auto_mask(False)                                        # Change masked arrays to old default (numpy arrays always returned)
+        coarse_grid = wrfh.WRF_Hydro_Grid(rootgrp, ctsm_grid=ctsm_grid)         # Instantiate a grid object
     fine_grid = cpy.copy(coarse_grid)                                           # Copy the grid object for modification
     fine_grid.regrid(regridFactor)                                              # Regrid to the coarse grid
-    print('    Created projection definition from input NetCDF GEOGRID file.')
+    print('    Created projection definition.')
     print('    Proj4: {0}'.format(coarse_grid.proj4))                           # Print Proj.4 string to screen
     print('    Coarse grid GeoTransform: {0}'.format(coarse_grid.GeoTransformStr()))        # Print affine transformation to screen.
     print('    Coarse grid extent [Xmin, Ymin, Xmax, Ymax]: {0}'.format(coarse_grid.grid_extent()))      # Print extent to screen.
     print('    Fine grid extent [Xmin, Ymin, Xmax, Ymax]:   {0}'.format(fine_grid.grid_extent()))      # Print extent to screen.
 
+    # Grids built from a CTSM surface dataset or a bounding box have no GEOGRID variables to use
+    is_ctsm = coarse_grid.isCTSM
+    is_bbox = coarse_grid.isBBox
+
     # Build output raster from numpy array of the GEOGRID variable requested. This will be used as a template later on
-    LU_INDEX = coarse_grid.numpy_to_Raster(wrfh.flip_grid(rootgrp.variables['LU_INDEX'][:]))
+    if is_ctsm or is_bbox:
+        print('    CTSM or bounding box input detected. Generating dummy landuse grid.')
+        LU_INDEX = coarse_grid.numpy_to_Raster(numpy.ones((coarse_grid.nrows, coarse_grid.ncols), dtype=numpy.float32))
+    else:
+        LU_INDEX = coarse_grid.numpy_to_Raster(wrfh.flip_grid(rootgrp.variables['LU_INDEX'][:]))
 
     # Create spatial metadata file for GEOGRID/LDASOUT grids
     out_nc1 = os.path.join(projdir, wrfh.LDASFile)
@@ -252,7 +277,17 @@ def GEOGRID_STANDALONE(inGeogrid,
     in_DEM = mosprj = None
 
     # Build latitude and longitude arrays for Fulldom_hires netCDF file
-    if coordMethod1:
+    if is_ctsm or is_bbox:
+        # There is no GEOGRID coordinate array on this grid to interpolate, so transform the
+        # routing grid cell centers directly from projected to geocentric coordinates.
+        print('    Deriving geocentric coordinates directly for CTSM or bounding box domain.')
+        wgs84_proj = osr.SpatialReference()                                     # Build empty spatial reference object
+        wgs84_proj.ImportFromProj4(wrfh.wgs84_proj4)                            # Imprort from proj4 to avoid EPSG errors (4326)
+        xmap, ymap = fine_grid.getxy()                                          # Get x and y coordinates as numpy array
+        lonArr2, latArr2 = wrfh.ReprojectCoords(xmap, ymap, coarse_grid.proj, wgs84_proj)  # Transform coordinate arrays
+        del xmap, ymap, wgs84_proj
+
+    elif coordMethod1:
         print('    Deriving geocentric coordinates on routing grid from bilinear interpolation of geogrid coordinates.')
         # Build latitude and longitude arrays for GEOGRID_LDASOUT spatial metadata file
         latArr = wrfh.flip_grid(rootgrp.variables['XLAT_M'][:])                 # Extract array of GEOGRID latitude values
@@ -282,7 +317,7 @@ def GEOGRID_STANDALONE(inGeogrid,
         wgs84_proj = osr.SpatialReference()                                     # Build empty spatial reference object
         wgs84_proj.ImportFromProj4(wrfh.wgs84_proj4)                            # Imprort from proj4 to avoid EPSG errors (4326)
         xmap, ymap = fine_grid.getxy()                                          # Get x and y coordinates as numpy array
-        latArr2, lonArr2 = wrfh.ReprojectCoords(xmap, ymap, coarse_grid.proj, wgs84_proj)  # Transform coordinate arrays
+        lonArr2, latArr2 = wrfh.ReprojectCoords(xmap, ymap, coarse_grid.proj, wgs84_proj)  # Transform coordinate arrays (returns x=lon, y=lat)
         del xmap, ymap, wgs84_proj
 
     # Create FULLDOM file
@@ -294,13 +329,14 @@ def GEOGRID_STANDALONE(inGeogrid,
     del latArr2, lonArr2
 
     # Add some global attribute metadata to the Fulldom file, including relevant WPS attributes for defining the model coordinate system
-    rootgrp2.geogrid_used = inGeogrid                                           # Paste path of geogrid file to the Fulldom global attributes
+    rootgrp2.geogrid_used = inGeogrid if inGeogrid else 'User-defined bounding box'     # Paste path of geogrid file (or a descriptor) to the Fulldom global attributes
     rootgrp2.DX = fine_grid.DX                                                  # Add X resolution as a global attribute
     rootgrp2.DY = -fine_grid.DY                                                 # Add Y resolution as a global attribute
     for item in wrfh.Geogrid_MapVars:
         if item in globalAtts:
             rootgrp2.setncattr(item, globalAtts[item])
-    rootgrp.close()                                                             # Close input GEOGRID file
+    if rootgrp is not None:
+        rootgrp.close()                                                         # Close input GEOGRID file
     del item, globalAtts, rootgrp
 
     # Process: Resample LU_INDEX grid to a higher resolution
@@ -416,8 +452,18 @@ if __name__ == '__main__':
     parser.add_argument("-i",
                         dest="in_Geogrid",
                         type=lambda x: is_valid_file(parser, x),
-                        required=True,
-                        help="Path to WPS geogrid (geo_em.d0*.nc) file [REQUIRED]")
+                        required=False,
+                        default=None,
+                        help="Path to WPS geogrid (geo_em.d0*.nc) file or CTSM surface dataset [REQUIRED unless a bounding box is provided]")
+    parser.add_argument("--min_lat", type=float, default=None, help="Minimum latitude for bounding box domain (decimal degrees)")
+    parser.add_argument("--max_lat", type=float, default=None, help="Maximum latitude for bounding box domain (decimal degrees)")
+    parser.add_argument("--min_lon", type=float, default=None, help="Minimum longitude for bounding box domain (decimal degrees)")
+    parser.add_argument("--max_lon", type=float, default=None, help="Maximum longitude for bounding box domain (decimal degrees)")
+    parser.add_argument("--bbox_res",
+                        type=float,
+                        default=None,
+                        help="Grid resolution in meters for a bounding box domain. If provided, the regridding (nest) factor is set to 1 "
+                             "and this is the routing grid resolution. If not provided, the base grid is {0} m and the regridding factor is used.".format(default_bbox_res))
     parser.add_argument("--CSV",
                         dest="in_CSV",
                         type=lambda x: is_valid_file(parser, x),
@@ -483,12 +529,49 @@ if __name__ == '__main__':
                         type=lambda x: is_valid_file(parser, x),
                         default=None,
                         help="Path to a routing grid raster with which to mask channels and channel-derived grids [OPTIONAL]")
+    parser.add_argument("--ctsm_grid",
+                        dest="ctsm_grid",
+                        type=float,
+                        default=None,
+                        help="Grid resolution in meters for CTSM surface dataset inputs. If provided, the regridding (nest) factor is set to 1 "
+                             "and this is the routing grid resolution. If not provided, the base grid is {0} m and the regridding factor is used.".format(default_ctsm_grid))
 
     # If no arguments are supplied, print help message
     if len(sys.argv)==1:
         parser.print_help(sys.stderr)
         sys.exit(1)
     args = parser.parse_args()
+
+    # An explicitly provided grid resolution forces a regridding (nest) factor of 1. These options default
+    # to None so that an explicit value is detected however it was typed (e.g., --ctsm_grid=500).
+    if args.ctsm_grid is not None:
+        print('User explicitly provided --ctsm_grid. Forcing regridding (nest) factor to 1.')
+        args.cellsize = 1
+        ctsm_grid = args.ctsm_grid
+    else:
+        ctsm_grid = default_ctsm_grid
+
+    # Check for User-Defined Bounding Box requirements
+    bbox_args = [args.min_lat, args.max_lat, args.min_lon, args.max_lon]
+    if any(b is not None for b in bbox_args):
+        if not all(b is not None for b in bbox_args):
+            sys.exit('ERROR: Must provide --min_lat, --max_lat, --min_lon, and --max_lon together.')
+        bbox_tuple = (args.min_lon, args.max_lon, args.min_lat, args.max_lat)
+        if args.in_Geogrid:
+            print('Bounding box provided. The input file (-i) will not be used to define the domain.')
+            args.in_Geogrid = ''                                                # Set empty since we are overriding file input
+        if args.bbox_res is not None:
+            print('User explicitly provided --bbox_res. Forcing regridding (nest) factor to 1.')
+            args.cellsize = 1
+            bbox_res = args.bbox_res
+        else:
+            bbox_res = default_bbox_res
+    else:
+        bbox_tuple = None
+        bbox_res = default_bbox_res
+        if not args.in_Geogrid:
+            sys.exit('ERROR: Must provide either an input geogrid/CTSM file (-i) or bounding box coordinates.')
+
     all_defaults = {key: parser.get_default(key) for key in vars(args)}
 
     # Handle printing to user the default variable name
@@ -512,7 +595,8 @@ if __name__ == '__main__':
     # Handle unsupported configurations - Currently none
 
     # This block allows us to continue to check for a valid file path while allowing the script later to avoid a NoneType error.
-    args.in_Geogrid = os.path.abspath(args.in_Geogrid)                          # Obtain absolute path for required input file.
+    if args.in_Geogrid:
+        args.in_Geogrid = os.path.abspath(args.in_Geogrid)                      # Obtain absolute path for input file (not used with a bounding box).
     args.inDEM = os.path.abspath(args.inDEM)                                    # Obtain absolute path for required input file.
     args.out_zip_file = os.path.abspath(args.out_zip_file)                      # Obtain absolute path for required output file.
     if not args.in_reservoirs:
@@ -538,7 +622,12 @@ if __name__ == '__main__':
 
         # Print information to screen
         print('  Values that will be used in building this routing stack:')
-        print('    Input WPS Geogrid file: {0}'.format(args.in_Geogrid))
+        if bbox_tuple is not None:
+            print('    Bounding box (min_lon, max_lon, min_lat, max_lat): {0}'.format(bbox_tuple))
+            print('    Bounding box grid resolution (m): {0}'.format(bbox_res))
+        else:
+            print('    Input WPS Geogrid or CTSM surface dataset file: {0}'.format(args.in_Geogrid))
+            print('    CTSM grid resolution (m, used for CTSM inputs only): {0}'.format(ctsm_grid))
         print('    Forecast Point CSV file: {0}'.format(args.in_CSV))
         print('    Mask CHANNELGRID variable to forecast basins?: {0}'.format(args.basin_mask))
         print('    Create reach-based routing (RouteLink) files?: {0}'.format(args.RB_routing))
@@ -579,7 +668,10 @@ if __name__ == '__main__':
                             retdeprtfac_val = args.retdeprtfac_val,
                             lksatfac_val = default_lksatfac_val,
                             startPts = args.channel_starts,
-                            channel_mask = args.ch_mask)
+                            channel_mask = args.ch_mask,
+                            ctsm_grid = ctsm_grid,
+                            bbox = bbox_tuple,
+                            bbox_res = bbox_res)
         tee.close()
         del tee
     else:

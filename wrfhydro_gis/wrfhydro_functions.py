@@ -257,8 +257,8 @@ streams_vector = "streams.shp"                                                  
 
 ###################################################
 # Dimension names to be used to identify certain known dimensions
-yDims = ['south_north', 'y']
-xDims = ['west_east', 'x']
+yDims = ['south_north', 'y', 'lsmlat']
+xDims = ['west_east', 'x', 'lsmlon']
 timeDim = ['Time', 'time']
 Geogrid_MapVars = ['MAP_PROJ', 'corner_lats', 'corner_lons', 'TRUELAT1', 'TRUELAT2', 'STAND_LON', 'POLE_LAT', 'POLE_LON', 'MOAD_CEN_LAT', 'CEN_LAT']
 ###################################################
@@ -342,7 +342,7 @@ class WRF_Hydro_Grid:
 
     Note:  The i,j index begins with (1,1) in the upper-left corner.
     '''
-    def __init__(self, rootgrp):
+    def __init__(self, rootgrp=None, ctsm_grid=1000.0, bbox=None, bbox_res=1000.0):
 
         '''                                                                                  .
         9/24/2019:
@@ -354,8 +354,171 @@ class WRF_Hydro_Grid:
 
             http://www2.mmm.ucar.edu/wrf/users/docs/user_guide_V3/users_guide_chap3.htm
 
+        Two alternative inputs are also supported:
+
+            CTSM surface dataset (rootgrp):  A netCDF file containing the LATIXY and
+                LONGXY variables is identified as a CTSM surface dataset. A Lambert
+                Conformal Conic grid with a cell size of ctsm_grid (meters) is fit
+                inside the CTSM domain (grid cell centers of the CTSM file).
+
+            Bounding box (bbox):  A tuple of (min_lon, max_lon, min_lat, max_lat) in
+                decimal degrees. A Lambert Conformal Conic grid with a cell size of
+                bbox_res (meters) is fit around the bounding box. No netCDF file is
+                read in this case, so rootgrp may be None.
+
         '''
         tic1 = time.time()
+        self.isGeogrid = False
+        self.isCTSM = False
+        self.isBBox = False
+
+        ###################################################
+        # User-defined bounding box. This bypasses the netCDF file.
+        ###################################################
+        if bbox is not None:
+            print('    Grid instantiation from user-defined bounding box initiated...')
+            self.isBBox = True
+
+            min_lon, max_lon, min_lat, max_lat = [float(item) for item in bbox]
+            if not (min_lon < max_lon and min_lat < max_lat and -90.0 <= min_lat and max_lat <= 90.0):
+                print('[PROBLEM!] Invalid bounding box. Require min_lon < max_lon, min_lat < max_lat, and latitudes between -90 and 90.')
+                print('           Received (min_lon, max_lon, min_lat, max_lat) = {0}'.format((min_lon, max_lon, min_lat, max_lat)))
+                raise SystemExit
+            print('    Bounding Box [min_lon, max_lon, min_lat, max_lat]: {0}'.format((min_lon, max_lon, min_lat, max_lat)))
+
+            # Generate Lambert Conformal Conic parameters dynamically
+            latitude_of_origin = (min_lat + max_lat) / 2.0
+            central_meridian = (min_lon + max_lon) / 2.0
+            standard_parallel_1 = min_lat + (max_lat - min_lat) / 6.0
+            standard_parallel_2 = max_lat - (max_lat - min_lat) / 6.0
+
+            proj = osr.SpatialReference()
+            self.map_pro = 1                                                        # LCC
+            proj.SetLCC(standard_parallel_1, standard_parallel_2, latitude_of_origin, central_meridian, 0, 0)
+
+            self.DX = float(bbox_res)
+            self.DY = -float(bbox_res)
+
+            # Set the datum BEFORE building the coordinate transformation so that the
+            # grid is located on the same sphere that is written to the output files.
+            proj.SetGeogCS('Sphere', 'Sphere', '', sphere_radius, 0.0)
+
+            wgs84_proj = osr.SpatialReference()
+            wgs84_proj.ImportFromProj4(wgs84_proj4)
+            if int(osgeo.__version__[0]) >= 3:
+                wgs84_proj.SetAxisMappingStrategy(osgeo.osr.OAMS_TRADITIONAL_GIS_ORDER)
+                proj.SetAxisMappingStrategy(osgeo.osr.OAMS_TRADITIONAL_GIS_ORDER)
+            transform = osr.CoordinateTransformation(wgs84_proj, proj)
+
+            # Project bounding box corners to find maximum extents in projected space
+            ll_x, ll_y, _ = transform.TransformPoint(min_lon, min_lat)
+            lr_x, lr_y, _ = transform.TransformPoint(max_lon, min_lat)
+            ul_x, ul_y, _ = transform.TransformPoint(min_lon, max_lat)
+            ur_x, ur_y, _ = transform.TransformPoint(max_lon, max_lat)
+
+            # Use outer bounds (circumscribed) to ensure the requested lat/lon area is fully covered
+            xMin = min(ll_x, ul_x)
+            xMax = max(lr_x, ur_x)
+            yMin = min(ll_y, lr_y)
+            yMax = max(ul_y, ur_y)
+
+            # Align to cell edges
+            self.x00 = xMin
+            self.y00 = yMax
+
+            # Calculate required rows/cols to cover the span
+            self.ncols = int(numpy.ceil((xMax - xMin) / self.DX))
+            self.nrows = int(numpy.ceil((yMax - yMin) / abs(self.DY)))
+
+            self.proj = proj
+            self.WKT = proj.ExportToWkt()
+            self.proj4 = proj.ExportToProj4()
+            del transform, wgs84_proj
+            print('    Geo-referencing step completed for bounding box in {0: 3.2f} seconds.'.format(time.time()-tic1))
+            return                                                                  # No netCDF file to read, so end here
+
+        ###################################################
+        # CTSM surface dataset, identified by 2D latitude and longitude variables.
+        ###################################################
+        if 'LATIXY' in rootgrp.variables and 'LONGXY' in rootgrp.variables:
+            print('    CTSM netCDF grid identification initiated...')
+            self.isCTSM = True
+
+            lat_arr = rootgrp.variables['LATIXY'][:]
+            lon_arr = rootgrp.variables['LONGXY'][:]
+
+            if numpy.ma.isMA(lat_arr):
+                lat_arr = lat_arr.data
+            if numpy.ma.isMA(lon_arr):
+                lon_arr = lon_arr.data
+
+            # Generate Lambert Conformal Conic parameters dynamically
+            lat_min, lat_max = numpy.nanmin(lat_arr), numpy.nanmax(lat_arr)
+
+            latitude_of_origin = numpy.nanmean(lat_arr)
+            central_meridian = numpy.nanmean(lon_arr)
+            standard_parallel_1 = lat_min + (lat_max - lat_min) / 6.0
+            standard_parallel_2 = lat_max - (lat_max - lat_min) / 6.0
+
+            proj = osr.SpatialReference()
+            self.map_pro = 1                                                        # LCC
+            proj.SetLCC(standard_parallel_1, standard_parallel_2, latitude_of_origin, central_meridian, 0, 0)
+
+            # Specify WRF-Hydro base grid cell size explicitly from user input
+            try:
+                safe_dx = float(ctsm_grid) if ctsm_grid else 1000.0
+            except ValueError:
+                print('    Warning: Invalid grid_resolution provided. Falling back to 1000.0m.')
+                safe_dx = 1000.0
+
+            self.DX = safe_dx
+            self.DY = -safe_dx
+
+            # Set the datum BEFORE building the coordinate transformation so that the
+            # grid is located on the same sphere that is written to the output files.
+            proj.SetGeogCS('Sphere', 'Sphere', '', sphere_radius, 0.0)
+
+            wgs84_proj = osr.SpatialReference()
+            wgs84_proj.ImportFromProj4(wgs84_proj4)
+            if int(osgeo.__version__[0]) >= 3:
+                wgs84_proj.SetAxisMappingStrategy(osgeo.osr.OAMS_TRADITIONAL_GIS_ORDER)
+                proj.SetAxisMappingStrategy(osgeo.osr.OAMS_TRADITIONAL_GIS_ORDER)
+            transform = osr.CoordinateTransformation(wgs84_proj, proj)
+
+            # Find bounds in projected space (LCC) using corner points. CTSM arrays are
+            # ordered south to north, so index [0, :] is the southern row.
+            ll_x, ll_y, _ = transform.TransformPoint(lon_arr[0, 0], lat_arr[0, 0])
+            lr_x, lr_y, _ = transform.TransformPoint(lon_arr[0, -1], lat_arr[0, -1])
+            ul_x, ul_y, _ = transform.TransformPoint(lon_arr[-1, 0], lat_arr[-1, 0])
+            ur_x, ur_y, _ = transform.TransformPoint(lon_arr[-1, -1], lat_arr[-1, -1])
+
+            # Target an inscribed envelope ensuring the grid is fully inside
+            xMin, xMax = max(ll_x, ul_x), min(lr_x, ur_x)
+            yMin, yMax = max(ll_y, lr_y), min(ul_y, ur_y)
+
+            # Shift starting coordinates from cell centers to cell edges
+            self.x00 = xMin + (self.DX / 2.0)
+            self.y00 = yMax + (self.DY / 2.0)
+
+            # Calculate rows/cols to perfectly fit this constrained geometry
+            self.ncols = int(numpy.floor((xMax - xMin) / self.DX))
+            self.nrows = int(numpy.floor((yMax - yMin) / abs(self.DY)))
+            if self.nrows < 1 or self.ncols < 1:
+                print('[PROBLEM!] Could not fit a grid with a cell size of {0} m inside of the CTSM domain (rows={1}, cols={2}).'.format(self.DX, self.nrows, self.ncols))
+                print('           The CTSM domain may be smaller than the requested cell size, or it may cross the prime meridian')
+                print('           (LONGXY values wrap from 360 to 0), which is not currently supported.')
+                raise SystemExit
+
+            self.proj = proj
+            self.WKT = proj.ExportToWkt()
+            self.proj4 = proj.ExportToProj4()
+            del transform, wgs84_proj, lat_arr, lon_arr
+            print('    Geo-referencing step completed for CTSM file in {0: 3.2f} seconds.'.format(time.time()-tic1))
+            return                                                                  # CTSM grid is fully defined, so end here
+
+        ###################################################
+        # WPS GEOGRID or Fulldom_hires file (original behavior)
+        ###################################################
         # First step: Import and georeference NetCDF file
         print('    WPS netCDF projection identification initiated...')
 

@@ -184,7 +184,7 @@ if __name__ == '__main__':
                 pass
 
             xmap, ymap = coarse_grid.getxy()                                    # Get x and y coordinates as numpy array
-            latArr, lonArr = ReprojectCoords(xmap, ymap, fine_grid.proj, wgs84_proj)   # Transform coordinate arrays
+            lonArr, latArr = ReprojectCoords(xmap, ymap, fine_grid.proj, wgs84_proj)   # Transform coordinate arrays
             del xmap, ymap, wgs84_proj
     else:
         latArr = lonArr = None
